@@ -4,7 +4,7 @@ import (
 	"github.com/goal-web/config"
 	"github.com/goal-web/console"
 	"github.com/goal-web/contracts"
-	"github.com/goal-web/goal-cli/console/commands"
+	commands2 "github.com/goal-web/goal-cli/app/console/commands"
 )
 
 func NewService() contracts.ServiceProvider {
@@ -13,8 +13,10 @@ func NewService() contracts.ServiceProvider {
 
 func NewKernel(app contracts.Application) contracts.Console {
 	return &Kernel{console.NewKernel(app, []contracts.CommandProvider{
-		commands.NewHello,
+		commands2.NewHello,
 		config.EncryptionCommand,
+		commands2.MakeCommand,
+		commands2.MakeModel,
 	}), app}
 }
 
