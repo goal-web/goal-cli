@@ -3,6 +3,7 @@ package commands
 import (
 	"database/sql"
 	"fmt"
+	"github.com/goal-web/console/arguments"
 	"github.com/goal-web/contracts"
 	"github.com/goal-web/goal-cli/utils"
 	"github.com/goal-web/supports/commands"
@@ -16,12 +17,14 @@ func MakeModel(app contracts.Application) contracts.Command {
 	return &makeModel{
 		Command:    commands.Base("make:model {name} {path?} {table?} {m?}", "创建一个模型"),
 		connection: app.Get("db").(contracts.DBConnection),
+		app:        app,
 	}
 }
 
 type makeModel struct {
 	commands.Command
 	connection contracts.DBConnection
+	app        contracts.Application
 }
 
 // ColumnInfo 结构体用于存储表的列信息
@@ -63,17 +66,17 @@ func (cmd makeModel) Handle() any {
 	table := cmd.StringOptional("table", utils.ModelNameToTable(name))
 	path := cmd.StringOptional("path", "app/models")
 	pkg := filepath.Base(path)
-	m := cmd.BoolOptional("m", false)
+	m := cmd.GetBool("m")
 
-	var dest = make([]ColumnInfo, 0)
-	exception := cmd.connection.Select(&dest, fmt.Sprintf("describe %s", table))
+	var existsColumns = make([]ColumnInfo, 0)
+	exception := cmd.connection.Select(&existsColumns, fmt.Sprintf("describe %s", table))
 	if exception != nil {
 		panic(exception)
 	}
 
 	var columns []string
 	var primaryColumn ColumnInfo
-	for _, column := range dest {
+	for _, column := range existsColumns {
 		columns = append(columns,
 			fmt.Sprintf("\n\t%s     %s    `json:\"%s\"`", utils.ConvertToCamelCase(column.Field), fieldTypeToGoType(column.Type), column.Field))
 		if column.Key == "PRI" {
@@ -106,6 +109,13 @@ func (cmd makeModel) Handle() any {
 
 	if err != nil {
 		panic(err)
+	}
+
+	// create migration files
+	if m && len(existsColumns) == 0 {
+		cmd.app.Get("console").(contracts.Console).Call("make:migration", arguments.NewArguments([]string{
+			fmt.Sprintf("create_%s", table),
+		}, contracts.Fields{}))
 	}
 
 	logs.Default().WithFields(contracts.Fields{
