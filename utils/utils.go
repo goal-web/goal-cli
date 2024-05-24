@@ -92,9 +92,18 @@ func ConvertToCamelCase(s string) string {
 	// 分割字符串并转换为驼峰形式
 	words := strings.Split(s, "_")
 	for i, word := range words {
-		words[i] = strings.Title(word)
+		words[i] = Capitalize(word)
 	}
 	result := strings.Join(words, "")
 
 	return result
+}
+
+func Capitalize(s string) string {
+	if len(s) == 0 {
+		return s
+	}
+	runes := []rune(s)
+	runes[0] = unicode.ToUpper(runes[0])
+	return string(runes)
 }
