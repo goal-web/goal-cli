@@ -8,6 +8,7 @@ import (
 	"github.com/goal-web/goal-cli/utils"
 	"github.com/goal-web/supports/commands"
 	"github.com/goal-web/supports/logs"
+	utils2 "github.com/goal-web/supports/utils"
 	"os"
 	"path/filepath"
 	"strings"
@@ -67,6 +68,18 @@ func (cmd makeModel) Handle() any {
 	path := cmd.StringOptional("path", "app/models")
 	pkg := filepath.Base(path)
 	m := cmd.GetBool("m")
+	path = fmt.Sprintf("%s/%s.go", path, name)
+
+	if utils2.ExistsPath(path) {
+		logs.Default().WithFields(contracts.Fields{
+			"path":  path,
+			"pkg":   pkg,
+			"table": table,
+			"name":  name,
+			"m":     m,
+		}).Error("model file is already exists.")
+		return nil
+	}
 
 	var existsColumns = make([]ColumnInfo, 0)
 	exception := cmd.connection.Select(&existsColumns, fmt.Sprintf("describe %s", table))
@@ -84,7 +97,7 @@ func (cmd makeModel) Handle() any {
 		}
 	}
 
-	err := os.WriteFile(fmt.Sprintf("%s/%s.go", path, name), []byte(fmt.Sprintf("package models"+
+	err := os.WriteFile(path, []byte(fmt.Sprintf("package models"+
 		"\n"+
 		"\nimport ("+
 		"\n\t\"github.com/goal-web/database/table\""+
