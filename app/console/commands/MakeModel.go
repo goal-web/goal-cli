@@ -82,10 +82,7 @@ func (cmd makeModel) Handle() any {
 	}
 
 	var existsColumns = make([]ColumnInfo, 0)
-	exception := cmd.connection.Select(&existsColumns, fmt.Sprintf("describe %s", table))
-	if exception != nil {
-		panic(exception)
-	}
+	_ = cmd.connection.Select(&existsColumns, fmt.Sprintf("describe %s", table))
 
 	var columns []string
 	var primaryColumn ColumnInfo
