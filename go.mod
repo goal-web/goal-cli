@@ -4,22 +4,6 @@ go 1.23.1
 
 require (
 	github.com/emicklei/proto v1.13.2
-	github.com/goal-web/application v0.5.0
-	github.com/goal-web/cache v0.5.0
-	github.com/goal-web/collection v0.5.0
-	github.com/goal-web/config v0.5.0
-	github.com/goal-web/console v0.5.0
-	github.com/goal-web/contracts v0.5.0
-	github.com/goal-web/database v0.5.0
-	github.com/goal-web/email v0.5.0
-	github.com/goal-web/encryption v0.5.0
-	github.com/goal-web/events v0.5.0
-	github.com/goal-web/filesystem v0.5.0
-	github.com/goal-web/hashing v0.5.0
-	github.com/goal-web/migration v0.5.0
-	github.com/goal-web/redis v0.5.0
-	github.com/goal-web/serialization v0.5.0
-	github.com/goal-web/supports v0.5.0
 	github.com/stretchr/testify v1.9.0
 )
 
@@ -32,8 +16,6 @@ require (
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/go-redis/redis/v8 v8.11.4 // indirect
 	github.com/go-sql-driver/mysql v1.5.0 // indirect
-	github.com/goal-web/container v0.5.0 // indirect
-	github.com/goal-web/querybuilder v0.5.0 // indirect
 	github.com/golang-module/carbon/v2 v2.3.12 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/jmoiron/sqlx v1.3.4 // indirect
@@ -54,5 +36,6 @@ require (
 	golang.org/x/crypto v0.0.0-20220128200615-198e4374d7ed // indirect
 	golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
+	golang.org/x/sys v0.0.0-20211216021012-1d35b9e2eb4e // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
