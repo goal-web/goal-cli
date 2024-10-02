@@ -18,6 +18,6 @@ type Proto struct {
 }
 
 func (proto Proto) Handle() any {
-	gen.Pro(proto.GetString("proto"), proto.GetString("-tmpl"), proto.GetString("-tmpl"))
+	gen.Pro(proto.GetString("proto"), proto.GetString("-tmpl"), proto.GetString("-out"))
 	return nil
 }
