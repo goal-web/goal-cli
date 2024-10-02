@@ -9,6 +9,7 @@ import (
 var Commands = []contracts.CommandProvider{
 	commands2.NewHello,
 	commands2.NewGen,
+	commands2.NewUpgrade,
 	config.EncryptionCommand,
 	commands2.MakeCommand,
 	commands2.MakeModel,
