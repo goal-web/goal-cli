@@ -8,7 +8,7 @@ import (
 )
 
 func NewUpgrade() (contracts.Command, contracts.CommandHandlerProvider) {
-	return commands.Base("upgrade {-v:目标版本，如 v0.4} {-mod:go.mod路径=./go.mod}", "通过 proto 生成代码"),
+	return commands.Base("upgrade {--v:目标版本，如 v0.4} {--mod:go.mod路径=./go.mod}", "通过 proto 生成代码"),
 		func(application contracts.Application) contracts.CommandHandler {
 			return &Upgrade{}
 		}
@@ -19,7 +19,7 @@ type Upgrade struct {
 }
 
 func (cmd Upgrade) Handle() any {
-	err := upgrade.UpdateGoalWebDependencies(cmd.GetString("-mod"), cmd.GetString("-v"))
+	err := upgrade.UpdateGoalWebDependencies(cmd.GetString("mod"), cmd.GetString("v"))
 	if err != nil {
 		logs.Default().WithError(err).Error("升级失败")
 	}

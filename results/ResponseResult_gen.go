@@ -4,7 +4,7 @@
 //	goal-pro v1.0.0
 //	go       go1.23.2
 //
-// updated_at: 2024-10-03 03:06:33
+// updated_at: 2024-10-03 03:20:26
 // source: common.proto
 package results
 
