@@ -11,10 +11,11 @@ import (
 	"strings"
 )
 
-func MakeCommand(app contracts.Application) contracts.Command {
-	return &makeCommand{
-		Command: commands.Base("make:command {name} {path?}", "make a command"),
-	}
+func MakeCommand() (contracts.Command, contracts.CommandHandlerProvider) {
+	return commands.Base("make:command {name} {path?}", "make a command"),
+		func(application contracts.Application) contracts.CommandHandler {
+			return &makeCommand{}
+		}
 }
 
 type makeCommand struct {

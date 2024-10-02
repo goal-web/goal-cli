@@ -6,10 +6,11 @@ import (
 	"github.com/goal-web/supports/logs"
 )
 
-func NewHello(app contracts.Application) contracts.Command {
-	return &Hello{
-		Command: commands.Base("hello {say}", "打印 hello goal"),
-	}
+func NewHello() (contracts.Command, contracts.CommandHandlerProvider) {
+	return commands.Base("hello {say}", "打印 hello goal"),
+		func(application contracts.Application) contracts.CommandHandler {
+			return &Hello{}
+		}
 }
 
 type Hello struct {

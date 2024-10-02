@@ -14,12 +14,14 @@ import (
 	"strings"
 )
 
-func MakeModel(app contracts.Application) contracts.Command {
-	return &makeModel{
-		Command:    commands.Base("make:model {name} {path?} {table?} {m?}", "创建一个模型"),
-		connection: app.Get("db").(contracts.DBConnection),
-		app:        app,
-	}
+func MakeModel() (contracts.Command, contracts.CommandHandlerProvider) {
+	return commands.Base("make:model {name} {path?} {table?} {m?}", "创建一个模型"),
+		func(app contracts.Application) contracts.CommandHandler {
+			return &makeModel{
+				connection: app.Get("db").(contracts.DBConnection),
+				app:        app,
+			}
+		}
 }
 
 type makeModel struct {
