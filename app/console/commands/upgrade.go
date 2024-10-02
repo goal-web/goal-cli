@@ -10,7 +10,7 @@ import (
 func NewUpgrade() (contracts.Command, contracts.CommandHandlerProvider) {
 	return commands.Base("upgrade {-v:目标版本，如 v0.4} {-mod:go.mod路径=./go.mod}", "通过 proto 生成代码"),
 		func(application contracts.Application) contracts.CommandHandler {
-			return &Proto{}
+			return &Upgrade{}
 		}
 }
 
