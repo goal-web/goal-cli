@@ -108,6 +108,19 @@ func HasComment(comment *proto.Comment, name string) bool {
 	}
 	return false
 }
+func HasMsgComment(msg Message, name string) bool {
+	if msg.Comment != nil {
+		if HasComment(msg.Comment, name) {
+			return true
+		}
+		for _, field := range msg.Fields {
+			if HasComment(field.Comment, name) {
+				return true
+			}
+		}
+	}
+	return false
+}
 
 func GetComment(comment *proto.Comment, name string, defaultValue string) string {
 	if comment != nil {
