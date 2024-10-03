@@ -9,32 +9,6 @@ import (
 	"strings"
 )
 
-func hasComment(comment *proto.Comment, name string) bool {
-	if comment != nil {
-		for _, line := range comment.Lines {
-			if strings.HasPrefix(line, name) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func getComment(comment *proto.Comment, name string, defaultValue string) string {
-	if comment != nil {
-		for _, line := range comment.Lines {
-			if strings.HasPrefix(line, name) {
-				value := strings.TrimPrefix(strings.TrimPrefix(line, name), ":")
-				if value == "" {
-					value = defaultValue
-				}
-				return value
-			}
-		}
-	}
-	return defaultValue
-}
-
 func getComments(comment *proto.Comment, name string, defaultValue string) []string {
 	var list []string
 	if comment != nil {

@@ -50,7 +50,7 @@ func ExtractEnums(p *proto.Proto, basePackage, dir string) []*Enum {
 					value := &EnumValue{
 						Name:    v.Name,
 						Value:   v.Integer,
-						Message: getComment(v.Comment, "@msg", v.Name),
+						Message: GetComment(v.Comment, "@msg", v.Name),
 					}
 					if v.Comment != nil {
 						value.Comments = v.Comment.Lines

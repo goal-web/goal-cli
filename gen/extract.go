@@ -25,11 +25,12 @@ func ExtractModel(msg *proto.Message, basePackage, dir string) Message {
 			}
 
 			var fieldItem = &Field{
+				Comment:   field.Comment,
 				Name:      ToCamelCase(field.Name),
 				Type:      field.Type,
 				JSONName:  field.Name,
 				UsageName: field.Type,
-				GoType:    getComment(field.Comment, "@goType", ""),
+				GoType:    GetComment(field.Comment, "@goType", ""),
 			}
 			if field.Comment != nil {
 				var commentTexts []string
@@ -46,7 +47,7 @@ func ExtractModel(msg *proto.Message, basePackage, dir string) Message {
 				}
 
 				if len(commentTexts) > 0 {
-					fieldItem.Comment = strings.Join(commentTexts, "\n")
+					fieldItem.Comments = strings.Join(commentTexts, "\n")
 				}
 			}
 			fields = append(fields, fieldItem)
@@ -58,6 +59,7 @@ func ExtractModel(msg *proto.Message, basePackage, dir string) Message {
 	usageName := fmt.Sprintf("%s.%s", filepath.Base(importPath), msg.Name)
 
 	message := Message{
+		Comment:         msg.Comment,
 		Template:        tmlp,
 		PrimaryKey:      primaryKey,
 		TableName:       ConvertCamelToSnake(replaceSuffix(msg.Name, "Model")),
@@ -66,7 +68,7 @@ func ExtractModel(msg *proto.Message, basePackage, dir string) Message {
 		Fields:          fields,
 		ImportPath:      importPath,
 		UsageName:       usageName,
-		Authenticatable: hasComment(msg.Comment, "@authenticatable"),
+		Authenticatable: HasComment(msg.Comment, "@authenticatable"),
 		FilePath:        strings.Join(trim(midDir, dir, replaceSuffix(msg.Name, "Model")+"_gen.go"), "/"),
 	}
 
@@ -129,11 +131,12 @@ func ExtractProto(def *proto.Proto, basePackage string, dir string) Proto {
 					}
 
 					var fieldItem = &Field{
+						Comment:   field.Comment,
 						Name:      ToCamelCase(field.Name),
 						Type:      field.Type,
 						JSONName:  field.Name,
 						UsageName: field.Type,
-						GoType:    getComment(field.Comment, "@goType", ""),
+						GoType:    GetComment(field.Comment, "@goType", ""),
 					}
 					if field.Comment != nil {
 						var commentTexts []string
@@ -148,7 +151,7 @@ func ExtractProto(def *proto.Proto, basePackage string, dir string) Proto {
 						}
 
 						if len(commentTexts) > 0 {
-							fieldItem.Comment = strings.Join(commentTexts, "\n")
+							fieldItem.Comments = strings.Join(commentTexts, "\n")
 						}
 					}
 					fields = append(fields, fieldItem)
@@ -159,6 +162,7 @@ func ExtractProto(def *proto.Proto, basePackage string, dir string) Proto {
 			usageName := fmt.Sprintf("%s.%s", filepath.Base(importPath), e.Name)
 
 			msg := Message{
+				Comment:    e.Comment,
 				Template:   tmlp,
 				PrimaryKey: primaryKey,
 				TableName:  ConvertCamelToSnake(replaceSuffix(e.Name, "Request", "Req")),
@@ -225,8 +229,8 @@ func ExtractServices(def *proto.Proto, basePackage string, dir string) map[strin
 								OutputUsageName:     usagePackageMap[rpc.ReturnsType].UsageName,
 								OutputImportPackage: usagePackageMap[rpc.ReturnsType].ImportPath,
 
-								Method:      strings.Split(getComment(rpc.Comment, "@method", "Post"), ","),
-								Path:        getComment(rpc.Comment, "@path", fmt.Sprintf("/%s", rpc.Name)),
+								Method:      strings.Split(GetComment(rpc.Comment, "@method", "Post"), ","),
+								Path:        GetComment(rpc.Comment, "@path", fmt.Sprintf("/%s", rpc.Name)),
 								Middlewares: getComments(rpc.Comment, "@middleware", ""),
 							}
 
@@ -239,8 +243,8 @@ func ExtractServices(def *proto.Proto, basePackage string, dir string) map[strin
 
 					temp.List = append(temp.List, &Service{
 						Middlewares: getComments(e.Comment, "@middleware", ""),
-						Controller:  hasComment(e.Comment, "@controller"),
-						Prefix:      getComment(e.Comment, "@controller", ""),
+						Controller:  HasComment(e.Comment, "@controller"),
+						Prefix:      GetComment(e.Comment, "@controller", ""),
 
 						Name:        e.Name,
 						Methods:     methods,

@@ -2,6 +2,7 @@ package gen
 
 import (
 	"fmt"
+	"github.com/emicklei/proto"
 	"log"
 	"os"
 	"path/filepath"
@@ -9,10 +10,11 @@ import (
 )
 
 type Field struct {
+	Comment    *proto.Comment
 	Name       string
 	Type       string
 	JSONName   string
-	Comment    string
+	Comments   string
 	Tags       string
 	ImportPath string
 	UsageName  string
@@ -36,6 +38,7 @@ type Message struct {
 	UsageName       string // 包名，例如：auth.UserModel
 	FilePath        string // biz/models/user.go
 	Comments        []string
+	Comment         *proto.Comment
 }
 
 func GenMessages(tmpl *template.Template, baseOutputDir string, messages []Message) []string {

@@ -31,6 +31,8 @@ func GetTemplate(path string) *template.Template {
 		"contains":      strings.Contains,
 		"notContains":   NotContains,
 		"toMiddlewares": ToMiddlewares,
+		"getComment":    GetComment,
+		"hasComment":    HasComment,
 	}).Parse(string(tmplContent))
 	if err != nil {
 		log.Fatal(err)

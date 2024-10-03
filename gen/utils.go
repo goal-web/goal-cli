@@ -2,6 +2,7 @@ package gen
 
 import (
 	"fmt"
+	"github.com/emicklei/proto"
 	"github.com/goal-web/collection"
 	"regexp"
 	"strings"
@@ -95,6 +96,32 @@ func GoType(field *Field) string {
 		str = "*" + str
 	}
 	return str
+}
+
+func HasComment(comment *proto.Comment, name string) bool {
+	if comment != nil {
+		for _, line := range comment.Lines {
+			if strings.HasPrefix(line, name) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func GetComment(comment *proto.Comment, name string, defaultValue string) string {
+	if comment != nil {
+		for _, line := range comment.Lines {
+			if strings.HasPrefix(line, name) {
+				value := strings.TrimPrefix(strings.TrimPrefix(line, name), ":")
+				if value == "" {
+					value = defaultValue
+				}
+				return value
+			}
+		}
+	}
+	return defaultValue
 }
 
 // ToTags 生成 tag
