@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"time"
 )
 
@@ -36,18 +35,50 @@ func Pro(protoFile, tmplFile, outputDir string) {
 	}
 	fmt.Printf("读取到的模块名：%s\n", moduleName)
 
-	// 获取输出目录的包名（最后一级目录名）
-	outputPackageName := filepath.Base(outputDirAbs)
-	fmt.Printf("输出目录的包名：%s\n", outputPackageName)
+	// 初始化模板，并添加函数映射
+	tmpl := GetTemplate(tmplFile)
 
+	definition := ParseProto(protoFile)
+	basePackage := filepath.Join(moduleName, outputDir)
+	pwd, err := os.Getwd()
+	if err != nil {
+		log.Fatalf("无法读取当前目录：%v", err)
+	}
+	// 提取数据
+	data := ExtractProto(pwd, definition, basePackage, filepath.Dir(protoFile))
+
+	// 更新输出目录
+
+	var files []string
+
+	for _, messages := range data.Messages {
+		files = append(files, GenMessages(tmpl, outputDirAbs, messages)...)
+	}
+
+	// 生成服务代码
+	for _, service := range data.Services {
+		files = append(files, GenServices(outputDirAbs, basePackage, tmpl, service.List)...)
+
+		GenRouters(outputDirAbs, service.List)
+	}
+
+	files = append(files, GenEnums(outputDirAbs, tmpl, data.Enums)...)
+
+	// 调用 AddHeaderAndFormatFiles 函数，传入文件列表和注释内容
+	err = AddHeaderAndFormatFiles(files, headerComment)
+	if err != nil {
+		fmt.Printf("Error processing files: %v\n", err)
+	}
+
+	fmt.Println("代码生成完成。")
+}
+
+func ParseProto(protoFile string) *proto.Proto {
 	// 读取 proto 文件
 	protoFilePath, err := filepath.Abs(protoFile)
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	// 初始化模板，并添加函数映射
-	tmpl := GetTemplate(tmplFile)
 
 	// 解析 proto 文件
 	reader, err := os.Open(protoFilePath)
@@ -61,35 +92,5 @@ func Pro(protoFile, tmplFile, outputDir string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	basePackage := strings.Join([]string{
-		moduleName, outputDir,
-	}, "/")
-	// 提取数据
-	data := ExtractProto(definition, basePackage, filepath.Dir(protoFile))
-
-	// 更新输出目录
-	baseOutputDir := outputDirAbs
-
-	var files []string
-
-	for _, messages := range data.Messages {
-		files = append(files, GenMessages(tmpl, baseOutputDir, messages)...)
-	}
-
-	// 生成服务代码
-	for _, service := range data.Services {
-		files = append(files, GenServices(baseOutputDir, basePackage, tmpl, service.List)...)
-
-		GenRouters(outputDirAbs, service.List)
-	}
-
-	files = append(files, GenEnums(baseOutputDir, tmpl, data.Enums)...)
-
-	// 调用 AddHeaderAndFormatFiles 函数，传入文件列表和注释内容
-	err = AddHeaderAndFormatFiles(files, headerComment)
-	if err != nil {
-		fmt.Printf("Error processing files: %v\n", err)
-	}
-
-	fmt.Println("代码生成完成。")
+	return definition
 }

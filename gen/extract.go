@@ -9,9 +9,10 @@ import (
 
 // Proto 数据结构定义
 type Proto struct {
-	Messages map[string][]Message
-	Services map[string]*ExtractServiceTemp
-	Enums    []*Enum
+	Messages   map[string][]Message
+	Services   map[string]*ExtractServiceTemp
+	Enums      []*Enum
+	References []*Proto
 }
 
 func ExtractModel(msg *proto.Message, basePackage, dir string) Message {
@@ -87,18 +88,24 @@ func ExtractModel(msg *proto.Message, basePackage, dir string) Message {
 	return usagePackageMap[msg.Name]
 }
 
-func ExtractProto(def *proto.Proto, basePackage string, dir string) Proto {
+func ExtractProto(pwd string, def *proto.Proto, basePackage string, dir string) *Proto {
 	var models []Message
 	var dataList []Message
 	var requests []Message
 	var results []Message
+	var references []*Proto
 
 	for _, element := range def.Elements {
-		if option, ok := element.(*proto.Option); ok {
-			if option.Name == "go_package" {
-				dir = option.Constant.Source
+		switch v := element.(type) {
+		case *proto.Option:
+			if v.Name == "go_package" {
+				dir = v.Constant.Source
 				fmt.Printf("读取到包名：%s\n", dir)
 			}
+		case *proto.Import:
+			subProf := ParseProto(filepath.Join(pwd, v.Filename))
+			references = append(references, ExtractProto(pwd, subProf, basePackage, dir))
+			fmt.Println(v)
 		}
 	}
 
@@ -187,15 +194,16 @@ func ExtractProto(def *proto.Proto, basePackage string, dir string) Proto {
 	}
 
 	// 返回提取的数据
-	data := Proto{
+	data := &Proto{
 		Messages: map[string][]Message{
 			"models":   models,
 			"dataList": dataList,
 			"requests": requests,
 			"results":  results,
 		},
-		Services: ExtractServices(def, basePackage, dir),
-		Enums:    ExtractEnums(def, basePackage, dir),
+		Services:   ExtractServices(def, basePackage, dir),
+		Enums:      ExtractEnums(def, basePackage, dir),
+		References: references,
 	}
 
 	return data
