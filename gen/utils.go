@@ -137,6 +137,14 @@ func GetComment(comment *proto.Comment, name string, defaultValue string) string
 	return defaultValue
 }
 
+func StringJoin(str ...string) string {
+	var s string
+	for _, s2 := range str {
+		s += s2
+	}
+	return s
+}
+
 func GetIndexComment(comment *proto.Comment, name string, index int, defaultValue string) string {
 	values := trim(strings.Split(GetComment(comment, name, ""), ",")...)
 	if len(values) >= index {

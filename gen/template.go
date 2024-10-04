@@ -32,6 +32,7 @@ func GetTemplate(path string) *template.Template {
 		"notContains":     NotContains,
 		"toMiddlewares":   ToMiddlewares,
 		"getComment":      GetComment,
+		"join":            StringJoin,
 		"getIndexComment": GetIndexComment,
 		"hasComment":      HasComment,
 		"hasMsgComment":   HasMsgComment,
