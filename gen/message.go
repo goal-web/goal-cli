@@ -32,11 +32,12 @@ type Message struct {
 	PrimaryKey string // 模型才有
 	Fields     []*Field
 
-	Template        string // model
-	Authenticatable bool   // 是否可用作登录
-	ImportPath      string // 包路径，例如：biz/models/auth
-	UsageName       string // 包名，例如：auth.UserModel
-	FilePath        string // biz/models/user.go
+	Relations       []*Field // 关联关系
+	Template        string   // model
+	Authenticatable bool     // 是否可用作登录
+	ImportPath      string   // 包路径，例如：biz/models/auth
+	UsageName       string   // 包名，例如：auth.UserModel
+	FilePath        string   // biz/models/user.go
 	Comments        []string
 	Comment         *proto.Comment
 }
@@ -60,11 +61,12 @@ func GenMessages(tmpl *template.Template, baseOutputDir string, messages []Messa
 
 		// 执行模板，传入 moduleName 和 outputPackageName
 		err = tmpl.ExecuteTemplate(outFile, message.Template, map[string]any{
-			"Imports": DetermineMessageImports(&message),
-			"Model":   message,
-			"Package": filepath.Base(message.ImportPath),
-			"Name":    message.Name,
-			"Fields":  message.Fields,
+			"Imports":   DetermineMessageImports(&message),
+			"Model":     message,
+			"Package":   filepath.Base(message.ImportPath),
+			"Name":      message.Name,
+			"Fields":    message.Fields,
+			"Relations": message.Relations,
 		})
 		if err != nil {
 			log.Fatal(err)

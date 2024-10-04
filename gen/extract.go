@@ -18,6 +18,7 @@ type Proto struct {
 func ExtractModel(msg *proto.Message, basePackage, dir string) Message {
 	// 处理模型和请求实体
 	var fields []*Field
+	var relations []*Field
 	var primaryKey string
 	for _, element := range msg.Elements {
 		if field, ok := element.(*proto.NormalField); ok {
@@ -33,6 +34,7 @@ func ExtractModel(msg *proto.Message, basePackage, dir string) Message {
 				UsageName: field.Type,
 				GoType:    GetComment(field.Comment, "@goType", ""),
 			}
+
 			if field.Comment != nil {
 				var commentTexts []string
 				for _, line := range field.Comment.Lines {
@@ -51,7 +53,11 @@ func ExtractModel(msg *proto.Message, basePackage, dir string) Message {
 					fieldItem.Comments = strings.Join(commentTexts, "\n")
 				}
 			}
-			fields = append(fields, fieldItem)
+			if HasComment(field.Comment, "@belongsTo") {
+				relations = append(relations, fieldItem)
+			} else {
+				fields = append(fields, fieldItem)
+			}
 		}
 	}
 	var midDir, tmlp = "models", "model"
@@ -67,6 +73,7 @@ func ExtractModel(msg *proto.Message, basePackage, dir string) Message {
 		RawName:         replaceSuffix(msg.Name, "Model"),
 		Name:            msg.Name,
 		Fields:          fields,
+		Relations:       relations,
 		ImportPath:      importPath,
 		UsageName:       usageName,
 		Authenticatable: HasComment(msg.Comment, "@authenticatable"),
