@@ -14,8 +14,10 @@ type Import struct {
 func DetermineMessageImports(message *Message) []Import {
 	importsSet := make(map[string]string)
 	usageMap := map[string]string{}
+	fields := append(message.Fields, message.Relations...)
 	var base string
-	for i, field := range message.Fields {
+
+	for i, field := range fields {
 		if alias, exists := usageMap[field.ImportPath]; exists {
 			field.UsageName = strings.ReplaceAll(field.UsageName, filepath.Base(field.ImportPath), alias)
 		} else {
