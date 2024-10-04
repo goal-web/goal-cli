@@ -21,19 +21,20 @@ func GetTemplate(path string) *template.Template {
 
 	// 初始化模板，并添加函数映射
 	tmpl, err := template.New("codegen").Funcs(template.FuncMap{
-		"goType":        GoType,
-		"toCamelCase":   ToCamelCase,
-		"toSnake":       ToSnakeCase,
-		"toTags":        ToTags,
-		"replaceSuffix": strings.ReplaceAll,
-		"toComments":    ToComments,
-		"sprintf":       fmt.Sprintf,
-		"contains":      strings.Contains,
-		"notContains":   NotContains,
-		"toMiddlewares": ToMiddlewares,
-		"getComment":    GetComment,
-		"hasComment":    HasComment,
-		"hasMsgComment": HasMsgComment,
+		"goType":          GoType,
+		"toCamelCase":     ToCamelCase,
+		"toSnake":         ToSnakeCase,
+		"toTags":          ToTags,
+		"replaceSuffix":   strings.ReplaceAll,
+		"toComments":      ToComments,
+		"sprintf":         fmt.Sprintf,
+		"contains":        strings.Contains,
+		"notContains":     NotContains,
+		"toMiddlewares":   ToMiddlewares,
+		"getComment":      GetComment,
+		"getIndexComment": GetIndexComment,
+		"hasComment":      HasComment,
+		"hasMsgComment":   HasMsgComment,
 	}).Parse(string(tmplContent))
 	if err != nil {
 		log.Fatal(err)

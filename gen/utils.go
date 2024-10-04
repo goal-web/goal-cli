@@ -137,6 +137,14 @@ func GetComment(comment *proto.Comment, name string, defaultValue string) string
 	return defaultValue
 }
 
+func GetIndexComment(comment *proto.Comment, name string, index int, defaultValue string) string {
+	values := trim(strings.Split(GetComment(comment, name, ""), ",")...)
+	if len(values) >= index {
+		return values[index]
+	}
+	return defaultValue
+}
+
 // ToTags 生成 tag
 func ToTags(f *Field) string {
 	if strings.Contains(f.Tags, "json:") {
