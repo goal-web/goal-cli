@@ -53,7 +53,9 @@ func ExtractModel(msg *proto.Message, basePackage, dir string) Message {
 					fieldItem.Comments = strings.Join(commentTexts, "\n")
 				}
 			}
-			if HasComment(field.Comment, "@belongsTo") {
+			if HasComment(field.Comment, "@belongsTo") ||
+				HasComment(field.Comment, "@hasOne") ||
+				HasComment(field.Comment, "@hasMany") {
 				relations = append(relations, fieldItem)
 			} else {
 				fields = append(fields, fieldItem)

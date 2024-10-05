@@ -108,6 +108,11 @@ func HasComment(comment *proto.Comment, name string) bool {
 	}
 	return false
 }
+
+func Sub(v, t int) int {
+	return v - t
+}
+
 func HasMsgComment(msg Message, name string) bool {
 	if msg.Comment != nil {
 		if HasComment(msg.Comment, name) {
