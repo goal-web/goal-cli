@@ -2,7 +2,7 @@ package commands
 
 import (
 	"github.com/goal-web/contracts"
-	"github.com/goal-web/goal-cli/gen"
+	"github.com/goal-web/goal-cli/app/gen"
 	"github.com/goal-web/supports/commands"
 )
 

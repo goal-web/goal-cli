@@ -24,7 +24,7 @@ require (
 )
 
 require (
-	github.com/BurntSushi/toml v1.2.1 // indirect
+	github.com/BurntSushi/toml v1.4.0 // indirect
 	github.com/ClickHouse/clickhouse-go/v2 v2.0.9 // indirect
 	github.com/apex/log v1.9.0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect

@@ -59,30 +59,24 @@ func UpdateGoalWebDependencies(goModFile string, targetVersion string) error {
 
 	// 查询最新版本并更新依赖
 	for dep, currentVersion := range dependencies {
-		// 提取当前依赖的主版本（vX.Y）
-		currentMajorMinor := extractMajorMinor(currentVersion)
+		// 获取符合 `targetVersion` 的最新补丁版本号
+		latestVersion, err := getLatestVersion(dep, targetVersion)
+		if err != nil {
+			fmt.Printf("获取 %s 最新版本失败: %v\n", dep, err)
+			continue
+		}
 
-		// 如果当前版本与目标版本不同，则进行更新
-		if currentMajorMinor != targetVersion {
-			// 获取符合 `targetVersion` 的最新补丁版本号
-			latestVersion, err := getLatestVersion(dep, targetVersion)
-			if err != nil {
-				fmt.Printf("获取 %s 最新版本失败: %v\n", dep, err)
-				continue
-			}
-
-			// 如果当前版本和最新版本不一致，则更新
-			if currentVersion != latestVersion {
-				updates = append(updates, fmt.Sprintf("%s: %s -> %s", dep, currentVersion, latestVersion))
-				// 使用 `go get` 更新指定的依赖
-				cmd := exec.Command("go", "get", fmt.Sprintf("%s@%s", dep, latestVersion))
-				cmd.Stdout = os.Stdout
-				cmd.Stderr = os.Stderr
-				if err := cmd.Run(); err != nil {
-					fmt.Printf("更新 %s 失败: %v\n", dep, err)
-				} else {
-					fmt.Printf("已更新 %s 从 %s 到 %s\n", dep, currentVersion, latestVersion)
-				}
+		// 如果当前版本和最新版本不一致，则进行更新
+		if currentVersion != latestVersion {
+			updates = append(updates, fmt.Sprintf("%s: %s -> %s", dep, currentVersion, latestVersion))
+			// 使用 `go get` 更新指定的依赖
+			cmd := exec.Command("go", "get", fmt.Sprintf("%s@%s", dep, latestVersion))
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			if err := cmd.Run(); err != nil {
+				fmt.Printf("更新 %s 失败: %v\n", dep, err)
+			} else {
+				fmt.Printf("已更新 %s 从 %s 到 %s\n", dep, currentVersion, latestVersion)
 			}
 		}
 	}

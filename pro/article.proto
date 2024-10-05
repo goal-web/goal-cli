@@ -1,9 +1,0 @@
-syntax = "proto3";
-
-import "pro/user.proto";
-
-option go_package = "article";
-
-message ArticleModel {
-	UserModel user = 1;
-}
