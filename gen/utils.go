@@ -113,12 +113,18 @@ func HasMsgComment(msg Message, name string) bool {
 		if HasComment(msg.Comment, name) {
 			return true
 		}
-		for _, field := range msg.Fields {
-			if HasComment(field.Comment, name) {
-				return true
-			}
+	}
+	for _, field := range msg.Fields {
+		if HasComment(field.Comment, name) {
+			return true
 		}
 	}
+	for _, field := range msg.Relations {
+		if HasComment(field.Comment, name) {
+			return true
+		}
+	}
+
 	return false
 }
 
