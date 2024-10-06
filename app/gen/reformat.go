@@ -49,18 +49,8 @@ func addHeaderAndFormat(filename, headerComment string) error {
 		return fmt.Errorf("failed to parse file: %v", err)
 	}
 
-	// 检查文件是否已经包含指定的注释
-	if node.Doc == nil || !strings.Contains(node.Doc.Text(), headerComment) {
-		// 添加头部注释
-		fmt.Printf("Adding header comment to file: %s\n", filename)
-		header := &ast.CommentGroup{
-			List: []*ast.Comment{
-				{Slash: node.Package, Text: headerComment},
-			},
-		}
-		node.Comments = append([]*ast.CommentGroup{header}, node.Comments...)
-		node.Doc = header
-	}
+	// 格式化 headerComment
+	headerComment = formatHeaderComment(headerComment)
 
 	// 移除未使用的 import 语句
 	removeUnusedImports(node)
@@ -72,7 +62,7 @@ func addHeaderAndFormat(filename, headerComment string) error {
 	}
 
 	// 将格式化后的代码写回文件
-	if err := os.WriteFile(filename, buf.Bytes(), 0644); err != nil {
+	if err := os.WriteFile(filename, []byte(fmt.Sprintf("%s\n%s", headerComment, buf.Bytes())), 0644); err != nil {
 		return fmt.Errorf("failed to write formatted code to file: %v", err)
 	}
 	fmt.Printf("File formatted and updated successfully: %s\n", filename)
@@ -120,4 +110,16 @@ func removeUnusedImports(f *ast.File) {
 		}
 	}
 	f.Imports = newImports
+}
+
+// formatHeaderComment 格式化头部注释，确保每行都带有 `//`
+func formatHeaderComment(comment string) string {
+	lines := strings.Split(comment, "\n")
+	for i, line := range lines {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "//") {
+			lines[i] = "// " + line
+		}
+	}
+	return strings.Join(lines, "\n")
 }

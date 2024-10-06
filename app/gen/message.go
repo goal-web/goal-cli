@@ -20,9 +20,12 @@ type Field struct {
 	UsageName  string
 	GoType     string // 用来映射 any 之类的
 	Ptr        bool
+	IsModel    bool
+	Repeated   bool
 }
 
 type Message struct {
+	IsModel bool
 	GoType  string
 	Name    string
 	RawName string // 没有后缀

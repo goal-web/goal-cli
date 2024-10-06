@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/emicklei/proto"
 	"github.com/goal-web/collection"
+	"github.com/goal-web/supports/utils"
 	"regexp"
 	"strings"
 	"unicode"
@@ -92,10 +93,30 @@ func GoType(field *Field) string {
 		str = field.Type
 	}
 
-	if field.Ptr {
+	if field.Ptr || field.IsModel {
 		str = "*" + str
 	}
+	if field.Repeated {
+		str = "[]" + str
+	}
 	return str
+}
+
+// SubString 切割字符串
+func SubString(str string, start int, nums ...int) string {
+	runes := []rune(str)
+	strLen := len(runes)
+	num := utils.DefaultValue(nums, strLen)
+	if start >= strLen {
+		return ""
+	}
+	if num < 0 {
+		return string(runes[start : strLen+num])
+	}
+	if start+num >= strLen || num == 0 {
+		return string(runes[start:])
+	}
+	return string(runes[start : start+num])
 }
 
 func HasComment(comment *proto.Comment, name string) bool {

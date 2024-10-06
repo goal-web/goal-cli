@@ -92,5 +92,6 @@ func ParseProto(protoFile string) *proto.Proto {
 	if err != nil {
 		log.Fatal(err)
 	}
+	definition.Filename = protoFile
 	return definition
 }

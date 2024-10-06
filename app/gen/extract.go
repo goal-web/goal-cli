@@ -27,6 +27,7 @@ func ExtractModel(msg *proto.Message, basePackage, dir string) Message {
 			}
 
 			var fieldItem = &Field{
+				Repeated:  field.Repeated,
 				Comment:   field.Comment,
 				Name:      ToCamelCase(field.Name),
 				Type:      field.Type,
@@ -53,9 +54,10 @@ func ExtractModel(msg *proto.Message, basePackage, dir string) Message {
 					fieldItem.Comments = strings.Join(commentTexts, "\n")
 				}
 			}
-			if HasComment(field.Comment, "@belongsTo") ||
+			if (HasComment(field.Comment, "@belongsTo") ||
 				HasComment(field.Comment, "@hasOne") ||
-				HasComment(field.Comment, "@hasMany") {
+				HasComment(field.Comment, "@hasMany")) && strings.HasSuffix(field.Type, "Model") {
+				fieldItem.IsModel = true
 				relations = append(relations, fieldItem)
 			} else {
 				fields = append(fields, fieldItem)
@@ -64,10 +66,11 @@ func ExtractModel(msg *proto.Message, basePackage, dir string) Message {
 	}
 	var midDir, tmlp = "models", "model"
 
-	importPath := strings.Join(trim(basePackage, midDir, dir), "/")
+	importPath := strings.Join(trim(basePackage, midDir), "/")
 	usageName := fmt.Sprintf("%s.%s", filepath.Base(importPath), msg.Name)
 
 	message := Message{
+		IsModel:         true,
 		Comment:         msg.Comment,
 		Template:        tmlp,
 		PrimaryKey:      primaryKey,
@@ -79,7 +82,7 @@ func ExtractModel(msg *proto.Message, basePackage, dir string) Message {
 		ImportPath:      importPath,
 		UsageName:       usageName,
 		Authenticatable: HasComment(msg.Comment, "@authenticatable"),
-		FilePath:        strings.Join(trim(midDir, dir, replaceSuffix(msg.Name, "Model")+"_gen.go"), "/"),
+		FilePath:        strings.Join(trim(midDir, replaceSuffix(msg.Name, "Model")+"_gen.go"), "/"),
 	}
 
 	if msg.Comment != nil {
@@ -97,12 +100,17 @@ func ExtractModel(msg *proto.Message, basePackage, dir string) Message {
 	return usagePackageMap[msg.Name]
 }
 
+// 避免死循环解析
+var parsedProtoMap = make(map[string]*Proto)
+
 func ExtractProto(pwd string, def *proto.Proto, basePackage string, dir string) *Proto {
 	var models []Message
 	var dataList []Message
 	var requests []Message
 	var results []Message
 	var references []*Proto
+	var data *Proto
+	parsedProtoMap[def.Filename] = data
 
 	for _, element := range def.Elements {
 		switch v := element.(type) {
@@ -112,9 +120,15 @@ func ExtractProto(pwd string, def *proto.Proto, basePackage string, dir string) 
 				fmt.Printf("读取到包名：%s\n", dir)
 			}
 		case *proto.Import:
-			subProf := ParseProto(filepath.Join(pwd, v.Filename))
-			references = append(references, ExtractProto(pwd, subProf, basePackage, dir))
-			fmt.Println(v)
+			protoFile := filepath.Join(pwd, v.Filename)
+			if subPro, exists := parsedProtoMap[protoFile]; exists {
+				references = append(references, subPro)
+			} else {
+				subProf := ParseProto(protoFile)
+				subPro = ExtractProto(pwd, subProf, basePackage, dir)
+				parsedProtoMap[def.Filename] = subPro
+				references = append(references, subPro)
+			}
 		}
 	}
 
@@ -147,6 +161,7 @@ func ExtractProto(pwd string, def *proto.Proto, basePackage string, dir string) 
 					}
 
 					var fieldItem = &Field{
+						Repeated:  field.Repeated,
 						Comment:   field.Comment,
 						Name:      ToCamelCase(field.Name),
 						Type:      field.Type,
@@ -203,7 +218,7 @@ func ExtractProto(pwd string, def *proto.Proto, basePackage string, dir string) 
 	}
 
 	// 返回提取的数据
-	data := &Proto{
+	data = &Proto{
 		Messages: map[string][]Message{
 			"models":   models,
 			"dataList": dataList,
@@ -214,7 +229,6 @@ func ExtractProto(pwd string, def *proto.Proto, basePackage string, dir string) 
 		Enums:      ExtractEnums(def, basePackage, dir),
 		References: references,
 	}
-
 	return data
 }
 

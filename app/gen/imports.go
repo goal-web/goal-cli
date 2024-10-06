@@ -18,6 +18,9 @@ func DetermineMessageImports(message *Message) []Import {
 	var base string
 
 	for i, field := range fields {
+		if message.IsModel && field.IsModel {
+			continue
+		}
 		if alias, exists := usageMap[field.ImportPath]; exists {
 			field.UsageName = strings.ReplaceAll(field.UsageName, filepath.Base(field.ImportPath), alias)
 		} else {
@@ -45,6 +48,7 @@ func DetermineMessageImports(message *Message) []Import {
 }
 func DetermineServiceImports(service *Service) []Import {
 	var base string
+	svcImportsSet = make(map[string]string)
 
 	for i, method := range service.Methods {
 		method.InputUsageName = fmt.Sprintf("%s.%s", filepath.Base(method.InputImportPackage), strings.Split(method.InputUsageName, ".")[1])
