@@ -19,7 +19,7 @@ require (
 	github.com/goal-web/migration v0.5.1
 	github.com/goal-web/redis v0.5.0
 	github.com/goal-web/serialization v0.5.1
-	github.com/goal-web/supports v0.5.1
+	github.com/goal-web/supports v0.5.2
 	github.com/stretchr/testify v1.9.0
 )
 
