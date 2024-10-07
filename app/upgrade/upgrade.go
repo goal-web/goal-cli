@@ -19,7 +19,7 @@ func UpdateGoalWebDependencies(goModFile string, targetVersion string) error {
 	defer file.Close()
 
 	// 正则匹配 github.com/goal-web/[组件名] vX.Y.Z
-	goalWebRegex := regexp.MustCompile(`(github.com/goal-web/[a-zA-Z0-9_-]+)\s+v([0-9]+\.[0-9]+\.[0-9]+)`)
+	goalWebRegex := regexp.MustCompile(`(github.com/goal-web/[a-zA-Z0-9_-]+)\s+(v[0-9]+\.[0-9]+\.[0-9]+)`)
 
 	// 存储 `github.com/goal-web` 相关依赖
 	dependencies := map[string]string{}
