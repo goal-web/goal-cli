@@ -7,9 +7,7 @@ import (
     "github.com/goal-web/contracts"
     "github.com/goal-web/database/table"
     "github.com/goal-web/supports/utils"
-    {{- if ne (len .Relations) 0 }}
     "github.com/goal-web/collection"
-    {{- end }}
     {{- if .Model.Authenticatable }}
     "fmt"
     {{- end }}
@@ -29,7 +27,7 @@ import (
 
 var (
     {{- range .Relations }}
-    {{ $rawName }}{{ .Name }}Relation contracts.RelationType = "{{ .Name }}"
+    {{ $rawName }}{{ .Name }}Relation contracts.RelationType = "{{ .JSONName }}"
     {{- end }}
 )
 
@@ -72,7 +70,7 @@ func init() {
         {{ $define }}.With,
         {{- range .Relations }}
             {{- if hasComment .Comment "@with" }}
-            "{{ .JSONName }}",
+             {{ $rawName }}{{ .Name }}Relation,
             {{- end }}
         {{- end }}
      )
@@ -87,36 +85,87 @@ func New{{ $modelName }}(fields contracts.Fields) *{{ $modelName }} {
   return &model
 }
 
+func {{ $modelName }}SingleRelationSetter[T any](key contracts.RelationType) func(item *{{ $modelName }}, value []any) {
+    return func(item *{{ $modelName }}, values []any) {
+        var value T
+        if len(values) > 0 {
+            value = values[0].(T)
+        }
+        item.Set(contracts.Fields{
+            string(key): value,
+        })
+    }
+}
+func {{ $modelName }}MultiRelationSetter[T any](key contracts.RelationType) func(item *{{ $modelName }}, value []any) {
+    return func(model *{{ $modelName }}, value []any) {
+        var results []T
+        for _, item := range value {
+            results = append(results, item.(T))
+        }
+        model.Set(contracts.Fields{ string(key): results })
+    }
+}
+
+func {{ $modelName }}LocalKeyGetter(key string) func(item *{{ $modelName }}) any {
+    return func(item *{{ $modelName }}) any {
+        return item.Get(key)
+    }
+}
+
+
+func {{ $modelName }}RelationGetter[T any](query func() contracts.QueryBuilder[T], foreignKey string) func(keys []any) map[string][]any {
+    return func(keys []any) map[string][]any {
+        var results = map[string][]any{}
+        for key, values := range query().WhereIn(foreignKey, keys).Get().GroupBy(foreignKey) {
+            results[key] = collection.New(values).ToAnyArray()
+        }
+        return results
+    }
+}
+
 {{- $queryName := replaceSuffix .Model.Name "Model" "Query" }}
-func {{ $queryName }}() *table.Table[{{ $modelName }}] {
-  return table.NewQuery("{{ $tableName }}", New{{ $modelName }}).SetPrimaryKey("{{ $primaryKey }}"){{- if ne (len .Relations) 0 }} . {{- end }}
-    {{- range .Relations }}
-    {{- $relationItemType := goType . }}
-    {{- $relationQuery := replaceSuffix $relationItemType "Model" "Query"}}
-    {{- $ownerKey := getIndexComment .Comment "@belongsTo" 0 "id" }}
-    {{- if hasComment .Comment "@belongsTo" }}
-    SetRelation(
-    {{ $rawName }}{{ .Name }}Relation,
-    			func(item *{{ $modelName }}) any {
-    				return item.Get("{{ getIndexComment .Comment "@belongsTo" 1 (join .JSONName "_id") }}")
-    			},
-    			func(keys []any) map[string][]any {
-    				var results = map[string][]any{}
-    				for key, values := range {{ $relationQuery }}().WhereIn("{{ $ownerKey }}", keys).Get().GroupBy("id") {
-    					results[key] = collection.New(values).ToAnyArray()
-    				}
-    				return results
-    			},
-    			func(item *{{ $modelName }}, value []any) {
-    			    if len(value) > 0 {
-    				    item.Set{{ .Name }}(value[0].(*{{ $relationItemType }}))
-    			    } else {
-    				    item.Set{{ .Name }}(nil)
-    			    }
-    			},
-    )
+{{- $relationLen := sub (len .Relations) 1 }}
+func {{ $queryName }}() contracts.QueryBuilder[{{ $modelName }}] {
+  return table.NewQuery("{{ $tableName }}", New{{ $modelName }}).
+    SetPrimaryKey("{{ $primaryKey }}").
+    {{- range $index, $item := .Relations }}
+        {{- $relationType := join $rawName  .Name "Relation" }}
+        {{- $relationItemType := substring (goType .) 1 }}
+        {{- $relationQuery := replaceSuffix $relationItemType "Model" "Query"}}
+
+        {{- if hasComment .Comment "@belongsTo" }}
+            {{- $ownerKey := getIndexComment .Comment "@belongsTo" 0 "id" }}
+            {{- $localKey := getIndexComment .Comment "@belongsTo" 1 (join .JSONName "_id") }}
+            SetRelation( // belongsTo
+            {{ $rawName }}{{ .Name }}Relation,
+                        {{ $modelName }}LocalKeyGetter("{{ $localKey }}"),
+                        {{ $modelName }}RelationGetter({{ $relationQuery }}, "{{ $ownerKey }}"),
+                        {{ $modelName }}SingleRelationSetter[*{{ $relationItemType }}]({{ $relationType }}),
+            ).
+        {{- else if hasComment .Comment "@hasOne" }}
+         {{- $localKey := getIndexComment .Comment "@hasOne" 0 "id" }}
+         {{- $foreignKey := getIndexComment .Comment "@hasOne" 1 (join (toLower $rawName) "_id") }}
+                    SetRelation( // hasOne
+                    {{ $rawName }}{{ .Name }}Relation,
+                        {{ $modelName }}LocalKeyGetter("{{ $localKey }}"),
+                        {{ $modelName }}RelationGetter({{ $relationQuery }}, "{{ $foreignKey }}"),
+                        {{ $modelName }}SingleRelationSetter[*{{ $relationItemType }}]({{ $relationType }}),
+                    ).
+        {{- else if hasComment .Comment "@hasMany" }}
+         {{- $relationItemType := substring (goType .) 2 }}
+         {{- $relationQuery := replaceSuffix (substring (goType .) 3) "Model" "Query"}}
+         {{- $foreignKey := getIndexComment .Comment "@hasMany" 0 (join (toLower $rawName) "_id") }}
+         {{- $localKey := getIndexComment .Comment "@hasMany" 1 "id" }}
+                    SetRelation( // hasMany
+                    {{ $rawName }}{{ .Name }}Relation,
+                        {{ $modelName }}LocalKeyGetter("{{ $localKey }}"),
+                        {{ $modelName }}RelationGetter({{ $relationQuery }}, "{{ $foreignKey }}"),
+                        {{ $modelName }}MultiRelationSetter[{{ $relationItemType }}]({{ $relationType }}),
+                    ).
+        {{- end }}
+
     {{- end }}
-    {{- end }}
+     With({{ $define }}.With...)
 }
 
 {{ toComments .Model.Name .Model.Comments }}
@@ -132,8 +181,12 @@ type {{ $modelName }} struct {
   _raw contracts.Fields
   _update contracts.Fields
   _append contracts.Fields
-  _relations contracts.Fields
   _hidden map[string]struct{}
+
+  _relation_loaded map[contracts.RelationType]struct{}
+  {{- range .Relations }}
+    _{{ .Name }} {{ goType . }}
+  {{- end }}
 }
 
 func (model *{{ $modelName }}) Hidden(fields ...string) *{{ $modelName }} {
@@ -217,7 +270,11 @@ func (model *{{ $modelName }}) Set(fields contracts.Fields) {
                   {{end}}
                 }
     {{- end }}
-
+    {{- range .Relations }}
+    {{- $relationType := join $rawName  .Name "Relation" }}
+    case string({{ $relationType }}):
+        model.Set{{ .Name }}(value.({{ goType . }}))
+    {{- end }}
     }
 
   }
@@ -241,20 +298,29 @@ func (model *{{ $modelName }}) Only(key ...string) contracts.Fields {
 }
 
 func (model *{{ $modelName }}) Get(key string) any {
-  {{- range .Fields }}
-    if key == "{{ .JSONName }}" {
-      return model.Get{{ .Name }}()
+    switch key {
+        {{- range $index, $item := .Fields }}
+            case "{{ .JSONName }}":
+              return model.Get{{ .Name }}()
+        {{- end }}
     }
-  {{- end }}
 
+    if value, exists := model._append[key]; exists {
+      return value
+    }
 
-    if model._append[key] != nil {
+    if fn, exists := {{ $define }}.Appends[key]; exists {
+        model._append[key] = fn(model)
       return model._append[key]
     }
 
-    if model._relations[key] != nil {
-      return model._relations[key]
-    }
+     switch contracts.RelationType(key) {
+            {{- range $index, $item := .Relations }}
+            {{- $relationType := join $rawName  .Name "Relation" }}
+                case {{ $relationType }}:
+                  return model.{{ .Name }}()
+            {{- end }}
+        }
 
   return nil
 }
@@ -285,8 +351,31 @@ func (model *{{ $modelName }}) ToFields() contracts.Fields {
     }
     {{- end }}
 
-  for key, f := range {{ $define }}.Appends {
-    fields[key] = f(model)
+  for key := range {{ $define }}.Appends {
+    value := model.Get(key)
+    if fieldsProvider, ok := value.(contracts.FieldsProvider); ok {
+        fields[key] = fieldsProvider.ToFields()
+    } else {
+        fields[key] = value
+    }
+  }
+
+  for key := range model._relation_loaded {
+    switch key {
+    {{- range .Relations }}
+    {{- $relationType := join $rawName  .Name "Relation" }}
+    case {{ $relationType }}:
+        {{- if .Repeated }}
+        var results []contracts.Fields
+        for _, item := range model._{{ .Name }} {
+            results = append(results, item.ToFields())
+        }
+        fields[string(key)] = results
+        {{- else }}
+        fields[string(key)] = model._{{ .Name }}.ToFields()
+        {{- end }}
+    {{- end }}
+    }
   }
 
   return fields
@@ -397,29 +486,70 @@ func (model *{{ $modelName }}) Get{{ .Name }}Carbon() carbon.Carbon {
 {{- end }}
 
 {{- range .Relations }}
-
-{{- $relationItemType := goType . }}
+{{- $relationType := join $rawName  .Name "Relation" }}
+{{- $relationItemType := substring (goType .) 1 }}
+{{- $relationQueryType := substring (goType .) 1 }}
 {{- $relationQuery := replaceSuffix $relationItemType "Model" "Query" }}
+{{- $foreignKey := "" }}
+{{- $localKey := "" }}
+{{- $localQuery := join .Name "Query" }}
 
-{{- if hasComment .Comment "@belongsTo" }}
-func (model *{{ $modelName }}) {{ .Name }}() *{{ goType . }} {
-    relation, exists := model._relations["{{ .JSONName }}"]
+{{- if (hasComment .Comment "@belongsTo") }}
+{{- $foreignKey = getIndexComment .Comment "@belongsTo" 0 "id" }}
+{{ $localKey = getIndexComment .Comment "@belongsTo" 1 (join .JSONName "_id") }}
+func (model *{{ $modelName }}) {{ .Name }}() {{ goType . }} {
+    _, exists := model._relation_loaded[{{ $relationType }}]
     if !exists {
-        value := {{ $relationQuery }}().Where("{{ getIndexComment .Comment "@belongsTo" 0 "id" }}", model.Get("{{ getIndexComment .Comment "@belongsTo" 1 (join .JSONName "_id") }}")).First()
+        value := model.{{ $localQuery }}().First()
         model.Set{{ .Name }}(value)
         return value
     }
-    return relation.(*{{ goType . }})
+    return model._{{ .Name }}
 }
 
-func (model *{{ $modelName }}) Set{{ .Name }}(value *{{ goType . }}) {
-    if model._relations == nil {
-        model._relations = contracts.Fields{"{{ .JSONName }}": value}
-        return
+{{- else if (hasComment .Comment "@hasOne") }}
+{{- $localKey = getIndexComment .Comment "@hasOne" 0 "id" }}
+{{- $foreignKey = getIndexComment .Comment "@hasOne" 1 (join (toLower $rawName) "_id") }}
+func (model *{{ $modelName }}) {{ .Name }}() {{ goType . }} {
+    _, exists := model._relation_loaded[{{ $relationType }}]
+    if !exists {
+        value := model.{{ $localQuery }}().First()
+        model.Set{{ .Name }}(value)
+        return value
     }
-    model._relations["{{ .JSONName }}"] = value
+    return model._{{ .Name }}
 }
+
+{{- else if (hasComment .Comment "@hasMany") }}
+
+{{- $relationItemType = substring (goType .) 3 }}
+{{- $relationQuery = replaceSuffix $relationItemType "Model" "Query" }}
+{{- $foreignKey = getIndexComment .Comment "@hasMany" 0 (join .JSONName "_id") }}
+{{- $localKey = getIndexComment .Comment "@hasMany" 1 "id" }}
+{{- $relationQueryType = $relationItemType }}
+func (model *{{ $modelName }}) {{ .Name }}() {{ goType . }} {
+    _, exists := model._relation_loaded[{{ $relationType }}]
+    if !exists {
+        value := model.{{ $localQuery }}().Get().ToArray()
+        model.Set{{ .Name }}(value)
+        return value
+    }
+    return model._{{ .Name }}
+}
+
 {{- end }}
+
+func (model *{{ $modelName }}) {{ $localQuery }}() contracts.QueryBuilder[{{ $relationQueryType }}] {
+    return {{ $relationQuery }}().Where("{{ $foreignKey }}", model.Get("{{ $localKey }}"))
+}
+
+func (model *{{ $modelName }}) Set{{ .Name }}(value {{ goType . }}) {
+    if model._relation_loaded == nil {
+        model._relation_loaded = make(map[contracts.RelationType]struct{})
+    }
+    model._relation_loaded[{{ $relationType }}] = struct{}{}
+    model._{{ .Name }} = value
+}
 
 {{- end }}
 
@@ -475,17 +605,35 @@ func (model *{{ .Model.Name }}) ToFields() contracts.Fields {
 
 {{- define "result" -}}
 package {{ .Package }}
-    
+
 import (
+    "github.com/goal-web/contracts"
   {{- range .Imports }}
   {{ .Alias }} "{{ .Pkg }}"
   {{- end }}
 )
 
-type {{ .Model.Name }} struct {
+{{- $resultName := .Model.Name }}
+
+type {{ $resultName }} struct {
   {{- range .Fields }}
   {{ .Name }} {{ goType . }} `{{ toTags . }}`
   {{- end }}
+}
+
+func (result *{{ $resultName }}) ToFields() contracts.Fields {
+    fields := contracts.Fields{
+        {{- range .Fields }}
+            {{- if eq (fieldMsg .) nil }}
+            "{{ .JSONName }}": result.{{ .Name }},
+            {{- else }}
+            "{{ .JSONName }}": result.{{ .Name }}.ToFields(),
+            {{- end }}
+        {{- end }}
+    }
+
+
+    return fields
 }
 
 {{ end }}
@@ -503,10 +651,10 @@ const (
   {{ $enumName }}{{ .Name }} {{ $enumName }} = {{ .Value }}
   {{- end }}
   {{ $enumName }}Unknown {{ $enumName }} = -1000
-      
+
 )
-  
-  
+
+
 func (item {{ $enumName }}) String() string {
     switch item {
       {{- range .Values }}
@@ -555,13 +703,20 @@ import (
 )
 
 {{- $serviceName := .Name }}
+{{- $define := join .Name "Define" }}
+
+var {{ $define }} {{ $serviceName }}Static
+type  {{ $serviceName }}Static struct {
+{{- range .Methods }}
+    {{ .Name }} func (req *{{ .InputUsageName }}) (*{{ .OutputUsageName }}, error)
+{{- end }}
+}
 
 {{- range .Methods }}
 
-var {{ $serviceName }}{{ .Name }}Handler func (req *{{ .InputUsageName }}) (*{{ .OutputUsageName }}, error)
 func {{ $serviceName }}{{ .Name }}(req *{{ .InputUsageName }}) (*{{ .OutputUsageName }}, error) {
-  if {{ $serviceName }}{{ .Name }}Handler != nil {
-    return {{ $serviceName }}{{ .Name }}Handler(req)
+  if {{ $define }}.{{ .Name }} != nil {
+    return {{ $define }}.{{ .Name }}(req)
   }
   return nil, nil
 }

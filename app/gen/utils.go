@@ -102,6 +102,11 @@ func GoType(field *Field) string {
 	return str
 }
 
+// FieldMsg 将 Proto 类型映射为 Go 类型
+func FieldMsg(field *Field) *Message {
+	return usagePackageMap[field.Type]
+}
+
 // SubString 切割字符串
 func SubString(str string, start int, nums ...int) string {
 	runes := []rune(str)
@@ -198,7 +203,7 @@ func ToTags(f *Field) string {
 
 var (
 	// 记录类型到包的映射
-	usagePackageMap = make(map[string]Message)
+	usagePackageMap = make(map[string]*Message)
 )
 
 func ToComments(name string, comments []string) string {

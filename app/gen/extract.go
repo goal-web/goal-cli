@@ -9,13 +9,13 @@ import (
 
 // Proto 数据结构定义
 type Proto struct {
-	Messages   map[string][]Message
+	Messages   map[string][]*Message
 	Services   map[string]*ExtractServiceTemp
 	Enums      []*Enum
 	References []*Proto
 }
 
-func ExtractModel(msg *proto.Message, basePackage, dir string) Message {
+func ExtractModel(msg *proto.Message, basePackage, dir string) *Message {
 	// 处理模型和请求实体
 	var fields []*Field
 	var relations []*Field
@@ -96,18 +96,18 @@ func ExtractModel(msg *proto.Message, basePackage, dir string) Message {
 			}
 		}
 	}
-	usagePackageMap[msg.Name] = message
-	return usagePackageMap[msg.Name]
+	usagePackageMap[msg.Name] = &message
+	return &message
 }
 
 // 避免死循环解析
 var parsedProtoMap = make(map[string]*Proto)
 
 func ExtractProto(pwd string, def *proto.Proto, basePackage string, dir string) *Proto {
-	var models []Message
-	var dataList []Message
-	var requests []Message
-	var results []Message
+	var models []*Message
+	var dataList []*Message
+	var requests []*Message
+	var results []*Message
 	var references []*Proto
 	var data *Proto
 	parsedProtoMap[def.Filename] = data
@@ -205,21 +205,21 @@ func ExtractProto(pwd string, def *proto.Proto, basePackage string, dir string) 
 				FilePath:   strings.Join(trim(midDir, dir, replaceSuffix(e.Name, "Model", "Request", "Req")+"_gen.go"), "/"),
 			}
 
-			usagePackageMap[e.Name] = msg
+			usagePackageMap[e.Name] = &msg
 
 			if strings.HasSuffix(e.Name, "Req") || strings.HasSuffix(e.Name, "Request") {
-				requests = append(requests, msg)
+				requests = append(requests, &msg)
 			} else if strings.HasSuffix(e.Name, "Result") {
-				results = append(results, msg)
+				results = append(results, &msg)
 			} else {
-				dataList = append(dataList, msg)
+				dataList = append(dataList, &msg)
 			}
 		}
 	}
 
 	// 返回提取的数据
 	data = &Proto{
-		Messages: map[string][]Message{
+		Messages: map[string][]*Message{
 			"models":   models,
 			"dataList": dataList,
 			"requests": requests,

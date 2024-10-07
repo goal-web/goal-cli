@@ -45,7 +45,7 @@ type Message struct {
 	Comment         *proto.Comment
 }
 
-func GenMessages(tmpl *template.Template, baseOutputDir string, messages []Message) []string {
+func GenMessages(tmpl *template.Template, baseOutputDir string, messages []*Message) []string {
 	var files []string
 	for _, message := range messages {
 		outputPath := filepath.Join(baseOutputDir, message.FilePath)
@@ -64,7 +64,7 @@ func GenMessages(tmpl *template.Template, baseOutputDir string, messages []Messa
 
 		// 执行模板，传入 moduleName 和 outputPackageName
 		err = tmpl.ExecuteTemplate(outFile, message.Template, map[string]any{
-			"Imports":   DetermineMessageImports(&message),
+			"Imports":   DetermineMessageImports(message),
 			"Model":     message,
 			"Package":   filepath.Base(message.ImportPath),
 			"Name":      message.Name,

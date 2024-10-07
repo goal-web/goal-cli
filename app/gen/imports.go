@@ -46,6 +46,7 @@ func DetermineMessageImports(message *Message) []Import {
 	}
 	return imports
 }
+
 func DetermineServiceImports(service *Service) []Import {
 	var base string
 	svcImportsSet = make(map[string]string)
