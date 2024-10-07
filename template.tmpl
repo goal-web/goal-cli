@@ -8,9 +8,7 @@ import (
     "github.com/goal-web/database/table"
     "github.com/goal-web/supports/utils"
     "github.com/goal-web/collection"
-    {{- if .Model.Authenticatable }}
     "fmt"
-    {{- end }}
     {{- if hasMsgComment .Model "@carbon" }}
     "github.com/golang-module/carbon/v2"
     {{- end }}
@@ -112,7 +110,6 @@ func {{ $modelName }}LocalKeyGetter(key string) func(item *{{ $modelName }}) any
     }
 }
 
-
 func {{ $modelName }}RelationGetter[T any](query func() contracts.QueryBuilder[T], foreignKey string) func(keys []any) map[string][]any {
     return func(keys []any) map[string][]any {
         var results = map[string][]any{}
@@ -122,6 +119,21 @@ func {{ $modelName }}RelationGetter[T any](query func() contracts.QueryBuilder[T
         return results
     }
 }
+
+func {{ $modelName }}ThroughRelationGetter[T any](query func() contracts.QueryBuilder[T], midTable, firstKey, secondKey, secondLocalKey string) func(keys []any) map[string][]any {
+    return func(keys []any) map[string][]any {
+        var results = map[string][]any{}
+        groupKey := fmt.Sprintf("%s.%s", midTable, firstKey)
+        for key, values := range query().
+            AddSelect(fmt.Sprintf("(%s) as _group_key", groupKey)).
+            WhereIn(groupKey, keys).
+            Join(midTable, fmt.Sprintf("%s.%s", midTable, secondLocalKey), "=", fmt.Sprintf("%s.%s", query().GetTableName(), secondKey)).
+            Get().GroupBy("_group_key") {
+            results[key] = collection.New(values).ToAnyArray()
+        }
+        return results
+    }
+ }
 
 {{- $queryName := replaceSuffix .Model.Name "Model" "Query" }}
 {{- $relationLen := sub (len .Relations) 1 }}
@@ -133,30 +145,69 @@ func {{ $queryName }}() contracts.QueryBuilder[{{ $modelName }}] {
         {{- $relationItemType := substring (goType .) 1 }}
         {{- $relationQuery := replaceSuffix $relationItemType "Model" "Query"}}
 
+        {{- if .Repeated }}
+        {{- $relationItemType = substring (goType .) 2 }}
+        {{- $relationQuery = substring $relationQuery 2 }}
+        {{- end }}
+
+
         {{- if hasComment .Comment "@belongsTo" }}
             {{- $ownerKey := getIndexComment .Comment "@belongsTo" 0 "id" }}
             {{- $localKey := getIndexComment .Comment "@belongsTo" 1 (join .JSONName "_id") }}
-            SetRelation( // belongsTo
+            SetRelation( // belongsTo: {{ .Name }}
             {{ $rawName }}{{ .Name }}Relation,
                         {{ $modelName }}LocalKeyGetter("{{ $localKey }}"),
                         {{ $modelName }}RelationGetter({{ $relationQuery }}, "{{ $ownerKey }}"),
                         {{ $modelName }}SingleRelationSetter[*{{ $relationItemType }}]({{ $relationType }}),
             ).
+        {{- else if hasComment .Comment "@hasOneThrough" }}
+
+         {{- $midTable := getIndexComment .Comment "@hasOneThrough" 0 "mid_table" }}
+         {{- $firstKey := getIndexComment .Comment "@hasOneThrough" 1 (join (toLower $rawName) "_id") }}
+         {{- $secondKey := getIndexComment .Comment "@hasOneThrough" 2 "id" }}
+         {{- $localKey := getIndexComment .Comment "@hasOneThrough" 3 "id" }}
+         {{- $secondLocalKey := getIndexComment .Comment "@hasOneThrough" 4 (join $midTable "_id") }}
+
+                    SetRelation( // hasOneThrough: {{ .Name }}
+                    {{ $rawName }}{{ .Name }}Relation,
+                        {{ $modelName }}LocalKeyGetter("{{ $localKey }}"),
+                        {{ $modelName }}ThroughRelationGetter({{ $relationQuery }}, "{{ $midTable }}", "{{ $firstKey }}", "{{ $secondKey }}", "{{ $secondLocalKey }}"),
+                        {{ $modelName }}SingleRelationSetter[*{{ $relationItemType }}]({{ $relationType }}),
+                    ).
         {{- else if hasComment .Comment "@hasOne" }}
          {{- $localKey := getIndexComment .Comment "@hasOne" 0 "id" }}
          {{- $foreignKey := getIndexComment .Comment "@hasOne" 1 (join (toLower $rawName) "_id") }}
-                    SetRelation( // hasOne
+                    SetRelation( // hasOne: {{ .Name }}
                     {{ $rawName }}{{ .Name }}Relation,
                         {{ $modelName }}LocalKeyGetter("{{ $localKey }}"),
                         {{ $modelName }}RelationGetter({{ $relationQuery }}, "{{ $foreignKey }}"),
                         {{ $modelName }}SingleRelationSetter[*{{ $relationItemType }}]({{ $relationType }}),
+                    ).
+        {{- else if or (hasComment .Comment "@hasManyThrough") (hasComment .Comment "@belongsToMany") }}
+
+            {{- $relationName := "hasManyThrough" }}
+            {{- if (hasComment .Comment "@belongsToMany") }}
+            {{- $relationName = "belongsToMany" }}
+            {{- end }}
+
+         {{- $midTable := getIndexComment .Comment (join "@" $relationName) 0 "mid_table" }}
+         {{- $firstKey := getIndexComment .Comment (join "@" $relationName) 1 (join (toLower $rawName) "_id") }}
+         {{- $secondKey := getIndexComment .Comment (join "@" $relationName) 2 "id" }}
+         {{- $localKey := getIndexComment .Comment (join "@" $relationName) 3 "id" }}
+         {{- $secondLocalKey := getIndexComment .Comment (join "@" $relationName) 4 (join $midTable "_id") }}
+
+                    SetRelation( // {{- $relationName }}: {{ .Name }}
+                    {{ $rawName }}{{ .Name }}Relation,
+                        {{ $modelName }}LocalKeyGetter("{{ $localKey }}"),
+                        {{ $modelName }}ThroughRelationGetter({{ $relationQuery }}, "{{ $midTable }}", "{{ $firstKey }}", "{{ $secondKey }}", "{{ $secondLocalKey }}"),
+                        {{ $modelName }}MultiRelationSetter[{{ $relationItemType }}]({{ $relationType }}),
                     ).
         {{- else if hasComment .Comment "@hasMany" }}
          {{- $relationItemType := substring (goType .) 2 }}
          {{- $relationQuery := replaceSuffix (substring (goType .) 3) "Model" "Query"}}
          {{- $foreignKey := getIndexComment .Comment "@hasMany" 0 (join (toLower $rawName) "_id") }}
          {{- $localKey := getIndexComment .Comment "@hasMany" 1 "id" }}
-                    SetRelation( // hasMany
+                    SetRelation( // hasMany: {{ .Name }}
                     {{ $rawName }}{{ .Name }}Relation,
                         {{ $modelName }}LocalKeyGetter("{{ $localKey }}"),
                         {{ $modelName }}RelationGetter({{ $relationQuery }}, "{{ $foreignKey }}"),
@@ -378,6 +429,12 @@ func (model *{{ $modelName }}) ToFields() contracts.Fields {
     }
   }
 
+  for key, value := range model._raw {
+    if _, exists := fields[key]; !exists {
+        fields[key] = value
+    }
+  }
+
   return fields
 }
 
@@ -489,44 +546,42 @@ func (model *{{ $modelName }}) Get{{ .Name }}Carbon() carbon.Carbon {
 {{- $relationType := join $rawName  .Name "Relation" }}
 {{- $relationItemType := substring (goType .) 1 }}
 {{- $relationQueryType := substring (goType .) 1 }}
+{{- $throughName := "" }}
+
+{{- if .Repeated }}
+{{- $relationItemType = substring (goType .) 3 }}
+{{- $relationQueryType = substring (goType .) 3 }}
+{{- end }}
+
+
 {{- $relationQuery := replaceSuffix $relationItemType "Model" "Query" }}
 {{- $foreignKey := "" }}
 {{- $localKey := "" }}
 {{- $localQuery := join .Name "Query" }}
 
 {{- if (hasComment .Comment "@belongsTo") }}
+{{- $throughName = "@belongsTo" }}
 {{- $foreignKey = getIndexComment .Comment "@belongsTo" 0 "id" }}
 {{ $localKey = getIndexComment .Comment "@belongsTo" 1 (join .JSONName "_id") }}
-func (model *{{ $modelName }}) {{ .Name }}() {{ goType . }} {
-    _, exists := model._relation_loaded[{{ $relationType }}]
-    if !exists {
-        value := model.{{ $localQuery }}().First()
-        model.Set{{ .Name }}(value)
-        return value
-    }
-    return model._{{ .Name }}
-}
 
 {{- else if (hasComment .Comment "@hasOne") }}
+{{- $throughName = "@hasOne" }}
+
 {{- $localKey = getIndexComment .Comment "@hasOne" 0 "id" }}
 {{- $foreignKey = getIndexComment .Comment "@hasOne" 1 (join (toLower $rawName) "_id") }}
-func (model *{{ $modelName }}) {{ .Name }}() {{ goType . }} {
-    _, exists := model._relation_loaded[{{ $relationType }}]
-    if !exists {
-        value := model.{{ $localQuery }}().First()
-        model.Set{{ .Name }}(value)
-        return value
-    }
-    return model._{{ .Name }}
-}
 
 {{- else if (hasComment .Comment "@hasMany") }}
+{{- $throughName = "@hasMany" }}
 
-{{- $relationItemType = substring (goType .) 3 }}
 {{- $relationQuery = replaceSuffix $relationItemType "Model" "Query" }}
 {{- $foreignKey = getIndexComment .Comment "@hasMany" 0 (join .JSONName "_id") }}
 {{- $localKey = getIndexComment .Comment "@hasMany" 1 "id" }}
 {{- $relationQueryType = $relationItemType }}
+
+{{- end }}
+
+{{- if .Repeated }}
+// {{ $localQuery }} {{ $throughName }}
 func (model *{{ $modelName }}) {{ .Name }}() {{ goType . }} {
     _, exists := model._relation_loaded[{{ $relationType }}]
     if !exists {
@@ -537,12 +592,52 @@ func (model *{{ $modelName }}) {{ .Name }}() {{ goType . }} {
     return model._{{ .Name }}
 }
 
+{{- else }}
+// {{ $localQuery }} {{ $throughName }}
+func (model *{{ $modelName }}) {{ .Name }}() {{ goType . }} {
+    _, exists := model._relation_loaded[{{ $relationType }}]
+    if !exists {
+        value := model.{{ $localQuery }}().First()
+        model.Set{{ .Name }}(value)
+        return value
+    }
+    return model._{{ .Name }}
+}
 {{- end }}
 
+
+{{- if or (hasComment .Comment "@hasManyThrough") (hasComment .Comment "@belongsToMany") (hasComment .Comment "@hasOneThrough")  }}
+
+{{- $throughName := "@hasManyThrough" }}
+
+{{- if (hasComment .Comment "@belongsToMany") }}
+{{- $throughName = "@belongsToMany" }}
+{{- else if (hasComment .Comment "@hasOneThrough") }}
+{{- $throughName = "@hasOneThrough" }}
+{{- end }}
+
+
+{{- $midTable := getIndexComment .Comment $throughName 0 "mid_table" }}
+{{- $firstKey := getIndexComment .Comment $throughName 1 (join (toLower $rawName) "_id") }}
+{{- $secondKey := getIndexComment .Comment $throughName 2 "id" }}
+{{- $localKey := getIndexComment .Comment $throughName 3 "id" }}
+{{- $secondLocalKey := getIndexComment .Comment $throughName 4 (join $midTable "_id") }}
+// {{ $localQuery }} {{ $throughName }}
+func (model *{{ $modelName }}) {{ $localQuery }}() contracts.QueryBuilder[{{ $relationQueryType }}] {
+    query := {{ $relationQuery }}()
+    return query.
+        Where("{{ $midTable }}.{{ $firstKey }}", model.Get("{{ $localKey }}")).
+        Join("{{ $midTable }}", "{{ $midTable }}.{{ $secondLocalKey }}",  "=", fmt.Sprintf("%s.{{ $secondKey }}", query.GetTableName()))
+}
+
+{{- else }}
+// {{ $localQuery }} {{ $throughName }}
 func (model *{{ $modelName }}) {{ $localQuery }}() contracts.QueryBuilder[{{ $relationQueryType }}] {
     return {{ $relationQuery }}().Where("{{ $foreignKey }}", model.Get("{{ $localKey }}"))
 }
+{{- end }}
 
+// {{ $localQuery }} {{ $throughName }}
 func (model *{{ $modelName }}) Set{{ .Name }}(value {{ goType . }}) {
     if model._relation_loaded == nil {
         model._relation_loaded = make(map[contracts.RelationType]struct{})
