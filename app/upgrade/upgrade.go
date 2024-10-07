@@ -3,6 +3,7 @@ package upgrade
 import (
 	"bufio"
 	"fmt"
+	"github.com/goal-web/supports/utils"
 	"os"
 	"os/exec"
 	"regexp"
@@ -109,7 +110,12 @@ func getLatestVersion(packageName string, targetVersion string) (string, error) 
 	for _, version := range versions {
 		// 过滤符合 targetVersion 前缀的版本号
 		if strings.HasPrefix(version, targetVersion) {
-			latestVersion = version
+			versionNum := utils.ToInt(strings.TrimPrefix(version, targetVersion+"."), 0)
+			latestVersionNum := utils.ToInt(strings.TrimPrefix(latestVersion, targetVersion+"."), 0)
+			if versionNum > latestVersionNum || latestVersion == "" {
+				latestVersion = version
+
+			}
 		}
 	}
 
