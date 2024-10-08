@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/goal-web/console/arguments"
 	"github.com/goal-web/contracts"
-	"github.com/goal-web/goal-cli/utils"
+	"github.com/goal-web/goal-cli/app/gen"
 	"github.com/goal-web/migration/migrate"
 	"github.com/goal-web/supports/commands"
 	"github.com/goal-web/supports/logs"
@@ -31,36 +31,33 @@ type makeModel struct {
 }
 
 func fieldTypeToGoType(fieldType string) string {
-	switch fieldType {
-	case "int", "bigint":
-		return "int64"
-	case "float", "double":
-		return "float64"
-	case "varchar", "char", "text", "json":
+	if strings.Contains(fieldType, "TEXT") || strings.HasPrefix(fieldType, "VARCHAR(") {
 		return "string"
-	case "binary":
-		return "[]byte"
-	case "date", "datetime", "timestamp":
-		return "time.Time"
-	case "boolean":
-		return "bool"
-	default:
-		if strings.HasPrefix(fieldType, "varchar") ||
-			strings.HasPrefix(fieldType, "nvarchar") ||
-			strings.HasPrefix(fieldType, "text") {
-			return "string"
-		}
-		return "any" // Fallback type
 	}
+
+	var SQLTypeMap = map[string]string{
+		"DOUBLE":          "double", //
+		"JSON":            "string", //
+		"FLOAT":           "float",  //
+		"TIMESTAMP":       "string", //
+		"INT":             "int32",  // 32
+		"BIGINT":          "int64",  // 64
+		"INT UNSIGNED":    "uint32", // 32
+		"BIGINT UNSIGNED": "uint64", // 64
+		"BOOLEAN":         "bool",   //
+		"VARCHAR(255)":    "string", //
+		"BLOB":            "bytes",  //
+	}
+	return SQLTypeMap[fieldType]
 }
 
 func (cmd makeModel) Handle() any {
 	name := cmd.GetString("name")
-	table := cmd.StringOptional("table", utils.ModelNameToTable(name))
-	path := cmd.StringOptional("path", "app/models")
+	table := cmd.StringOptional("table", gen.ConvertCamelToSnake(name))
+	path := cmd.StringOptional("path", "pro")
 	pkg := filepath.Base(path)
 	m := cmd.GetBool("m")
-	path = fmt.Sprintf("%s/%s.go", path, name)
+	path = fmt.Sprintf("%s/%s.proto", path, name)
 
 	if utils2.ExistsPath(path) {
 		logs.Default().WithFields(contracts.Fields{
@@ -74,40 +71,36 @@ func (cmd makeModel) Handle() any {
 	}
 
 	var existsColumns = make([]migrate.ColumnInfo, 0)
-	_ = cmd.connection.Select(&existsColumns, fmt.Sprintf("describe %s", table))
-
-	var columns []string
-	var primaryColumn migrate.ColumnInfo
-	for _, column := range existsColumns {
-		columns = append(columns,
-			fmt.Sprintf("\n\t%s     %s    `json:\"%s\"`", utils.ConvertToCamelCase(column.Field), fieldTypeToGoType(column.Type), column.Field))
-		if column.Key == "PRI" {
-			primaryColumn = column
-		}
+	exception := cmd.connection.Select(&existsColumns, fmt.Sprintf("describe %s", table))
+	if exception != nil {
+		logs.Default().WithError(exception).Error("table is not exists.")
 	}
 
-	err := os.WriteFile(path, []byte(fmt.Sprintf("package models"+
-		"\n"+
-		"\nimport ("+
-		"\n\t\"github.com/goal-web/database/table\""+
-		"\n\t\"github.com/goal-web/supports/class\""+
-		"\n\t\"time\""+
-		"\n)"+
-		"\n"+
-		"\nvar ("+
-		fmt.Sprintf("\n\t%sClass = class.Make[%s]()", name, name)+
-		"\n)"+
-		"\n"+
-		fmt.Sprintf("\nfunc %s() *table.Table[%s] {", utils.ToPlural(name), name)+
-		fmt.Sprintf("\n\treturn table.Class(%sClass, \"%s\").SetPrimaryKey(\"%s\")", name, table, primaryColumn.Field)+
-		"\n}"+
-		"\n"+
-		fmt.Sprintf("\ntype %s struct {", name)+
-		fmt.Sprintf("\n\ttable.Model[%s] `json:\"-\"`", name)+
-		"\n"+
-		strings.Join(columns, "")+
-		"\n}"+
-		"\n")), os.ModePerm)
+	var columns []string
+	for i, column := range existsColumns {
+		columns = append(columns, fmt.Sprintf("    %s %s = %d;", fieldTypeToGoType(strings.ToUpper(column.Type)), column.Field, i+1))
+	}
+
+	if len(columns) == 0 {
+		columns = append(columns, `//@pk
+		int64 id = 1;
+		string created_at = 2;
+
+
+
+		string updated_at = 100;`)
+	}
+
+	err := os.WriteFile(path, []byte(fmt.Sprintf(`syntax = "proto3";
+
+option go_package = ".";
+
+//@timestamps
+//@table: %s
+message %sModel {
+%s
+}
+`, table, name, strings.Join(columns, "\n"))), os.ModePerm)
 
 	if err != nil {
 		panic(err)
