@@ -6,6 +6,7 @@ import (
     "github.com/goal-web/supports/logs"
     "github.com/goal-web/contracts"
     "github.com/goal-web/database/table"
+	"github.com/goal-web/migration/migrate"
     "github.com/goal-web/supports/utils"
     "github.com/goal-web/collection"
     "fmt"
@@ -22,18 +23,41 @@ import (
 {{- $tableName := .Model.TableName }}
 {{- $primaryKey := .Model.PrimaryKey }}
 
-
 var (
     {{- range .Relations }}
     {{ $rawName }}{{ .Name }}Relation contracts.RelationType = "{{ .JSONName }}"
     {{- end }}
 )
 
+{{ toComments .Model.Name .Model.Comments }}
+type {{ $modelName }} struct {
+
+  {{- range .Fields }}
+  {{- if hasComment .Comment "@belongsTo" }}
+  {{- else }}
+  {{ .Comments }}
+  {{ .Name }} {{ goType . }} `{{ toTags . }}`
+  {{- end }}
+  {{- end }}
+
+  _raw contracts.Fields
+  _update contracts.Fields
+  _append contracts.Fields
+  _hidden map[string]struct{}
+
+  _relation_loaded map[contracts.RelationType]struct{}
+  {{- range .Relations }}
+    _{{ .Name }} {{ goType . }}
+  {{- end }}
+}
+
 {{- $define := join $rawName "Define" }}
 var {{ $define }} {{ $rawName }}Static
 
 type {{ $rawName }}Static struct {
+    TableName string
 	Hidden []string
+	Indexes []string
 	With []contracts.RelationType
 	Appends map[string]func(model *{{ $modelName }}) any
 
@@ -51,7 +75,15 @@ type {{ $rawName }}Static struct {
   PrimaryKeyGetter func(model *{{ $modelName }}) any
 }
 
+func {{ $rawName }}Migrator() migrate.Migrator {
+	return func(executor contracts.SqlExecutor) contracts.Exception {
+	    return migrate.Migrate({{ $define }}.TableName, {{ $define }}.Indexes, {{ $modelName }}{}, executor)
+	}
+}
+
 func init() {
+    {{ $define }}.TableName = "{{ $tableName }}"
+    {{ $define }}.Appends = make(map[string]func(model *{{ $modelName }}) any)
     {{- if hasMsgComment .Model "@hidden" }}
     {{ $define }}.Hidden = append(
         {{ $define }}.Hidden,
@@ -69,6 +101,28 @@ func init() {
         {{- range .Relations }}
             {{- if hasComment .Comment "@with" }}
              {{ $rawName }}{{ .Name }}Relation,
+            {{- end }}
+        {{- end }}
+     )
+    {{- end }}
+
+    {{- if hasMsgComment .Model "@index" }}
+    {{ $define }}.Indexes = append(
+        {{ $define }}.Indexes,
+        {{- range .Fields }}
+            {{- if hasComment .Comment "@index" }}
+             "index;{{ getIndexComment .Comment "@index" 0 (join .JSONName "_idx") }};{{ replace (getIndexComment .Comment "@index" 1 (join "(" .JSONName ")")) ";" "," }}",
+            {{- end }}
+        {{- end }}
+     )
+    {{- end }}
+
+    {{- if hasMsgComment .Model "@unique" }}
+    {{ $define }}.Indexes = append(
+        {{ $define }}.Indexes,
+        {{- range .Fields }}
+            {{- if hasComment .Comment "@unique" }}
+             "unique index;{{ getIndexComment .Comment "@unique" 0 (join .JSONName "_idx") }};{{ replace (getIndexComment .Comment "@unique" 1 (join "(" .JSONName ")")) ";" "," }}",
             {{- end }}
         {{- end }}
      )
@@ -110,7 +164,7 @@ func {{ $modelName }}LocalKeyGetter(key string) func(item *{{ $modelName }}) any
     }
 }
 
-func {{ $modelName }}RelationGetter[T any](query func() contracts.QueryBuilder[T], foreignKey string) func(keys []any) map[string][]any {
+func {{ $modelName }}RelationGetter[T any](query func() *table.Table[T], foreignKey string) func(keys []any) map[string][]any {
     return func(keys []any) map[string][]any {
         var results = map[string][]any{}
         for key, values := range query().WhereIn(foreignKey, keys).Get().GroupBy(foreignKey) {
@@ -120,7 +174,7 @@ func {{ $modelName }}RelationGetter[T any](query func() contracts.QueryBuilder[T
     }
 }
 
-func {{ $modelName }}ThroughRelationGetter[T any](query func() contracts.QueryBuilder[T], midTable, firstKey, secondKey, secondLocalKey string) func(keys []any) map[string][]any {
+func {{ $modelName }}ThroughRelationGetter[T any](query func() *table.Table[T], midTable, firstKey, secondKey, secondLocalKey string) func(keys []any) map[string][]any {
     return func(keys []any) map[string][]any {
         var results = map[string][]any{}
         groupKey := fmt.Sprintf("%s.%s", midTable, firstKey)
@@ -135,15 +189,22 @@ func {{ $modelName }}ThroughRelationGetter[T any](query func() contracts.QueryBu
     }
  }
 
-{{- $queryName := replaceSuffix .Model.Name "Model" "Query" }}
-{{- $relationLen := sub (len .Relations) 1 }}
-func {{ $queryName }}() contracts.QueryBuilder[{{ $modelName }}] {
-  return table.NewQuery("{{ $tableName }}", New{{ $modelName }}).
+{{- $queryName := replace .Model.Name "Model" "Query" }}
+func {{ $queryName }}WithExecutor(executor contracts.SqlExecutor) *table.Table[{{ $modelName }}] {
+    return {{ $queryName }}().SetExecutor(executor)
+}
+
+func {{ $queryName }}() *table.Table[{{ $modelName }}] {
+  return table.NewQuery({{ $define }}.TableName, New{{ $modelName }}).
     SetPrimaryKey("{{ $primaryKey }}").
+    {{- if hasMsgComment .Model "@timestamps" }}
+    SetCreatedTimeColumn("{{ getIndexComment .Model.Comment "@timestamps" 0 "created_at" }}").
+    SetUpdatedTimeColumn("{{ getIndexComment .Model.Comment "@timestamps" 1 "updated_at" }}").
+    {{- end }}
     {{- range $index, $item := .Relations }}
         {{- $relationType := join $rawName  .Name "Relation" }}
         {{- $relationItemType := substring (goType .) 1 }}
-        {{- $relationQuery := replaceSuffix $relationItemType "Model" "Query"}}
+        {{- $relationQuery := replace $relationItemType "Model" "Query"}}
 
         {{- if .Repeated }}
         {{- $relationItemType = substring (goType .) 2 }}
@@ -204,7 +265,7 @@ func {{ $queryName }}() contracts.QueryBuilder[{{ $modelName }}] {
                     ).
         {{- else if hasComment .Comment "@hasMany" }}
          {{- $relationItemType := substring (goType .) 2 }}
-         {{- $relationQuery := replaceSuffix (substring (goType .) 3) "Model" "Query"}}
+         {{- $relationQuery := replace (substring (goType .) 3) "Model" "Query"}}
          {{- $foreignKey := getIndexComment .Comment "@hasMany" 0 (join (toLower $rawName) "_id") }}
          {{- $localKey := getIndexComment .Comment "@hasMany" 1 "id" }}
                     SetRelation( // hasMany: {{ .Name }}
@@ -216,28 +277,7 @@ func {{ $queryName }}() contracts.QueryBuilder[{{ $modelName }}] {
         {{- end }}
 
     {{- end }}
-     With({{ $define }}.With...)
-}
-
-{{ toComments .Model.Name .Model.Comments }}
-type {{ $modelName }} struct {
-  {{- range .Fields }}
-  {{- if hasComment .Comment "@belongsTo" }}
-  {{- else }}
-  {{ .Comments }}
-  {{ .Name }} {{ goType . }} `{{ toTags . }}`
-  {{- end }}
-  {{- end }}
-
-  _raw contracts.Fields
-  _update contracts.Fields
-  _append contracts.Fields
-  _hidden map[string]struct{}
-
-  _relation_loaded map[contracts.RelationType]struct{}
-  {{- range .Relations }}
-    _{{ .Name }} {{ goType . }}
-  {{- end }}
+     SetWiths({{ $define }}.With...)
 }
 
 func (model *{{ $modelName }}) Hidden(fields ...string) *{{ $modelName }} {
@@ -267,7 +307,7 @@ func (model *{{ $modelName }}) Save() contracts.Exception {
     if err := {{ $define }}.Saving(model); err != nil {
       return err
     }
-  }
+  } 
   _, err := {{ .Model.RawName }}Query().Where("{{ $primaryKey }}", model.GetPrimaryKey()).UpdateE(model._update)
   if err == nil {
     model._update = nil
@@ -275,7 +315,7 @@ func (model *{{ $modelName }}) Save() contracts.Exception {
       {{ $define }}.Saved(model)
     }
   }
-
+  
   return err
 }
 
@@ -340,7 +380,7 @@ func (model *{{ $modelName }}) Only(key ...string) contracts.Fields {
       continue
     }
   {{- end }}
-
+  
     if {{ $define }}.Appends[k] != nil {
      fields[k] = {{ $define }}.Appends[k](model)
     }
@@ -452,7 +492,7 @@ func (model *{{ $modelName }}) Update(fields contracts.Fields) contracts.Excepti
 
 
   _, err := {{ .Model.RawName }}Query().Where("{{ $primaryKey }}", model.GetPrimaryKey()).UpdateE(fields)
-
+  
   if err == nil {
     model.Set(fields)
     model._update = nil
@@ -460,7 +500,7 @@ func (model *{{ $modelName }}) Update(fields contracts.Fields) contracts.Excepti
       {{ $define }}.Updated(model, fields)
     }
   }
-
+  
   return err
 }
 
@@ -475,7 +515,7 @@ func (model *{{ $modelName }}) Refresh() contracts.Exception {
 }
 
 func (model *{{ $modelName }}) Delete() contracts.Exception {
-
+  
   if {{ $define }}.Deleting != nil {
     if err := {{ $define }}.Deleting(model); err != nil {
       return err
@@ -486,16 +526,16 @@ func (model *{{ $modelName }}) Delete() contracts.Exception {
   if err == nil && {{ $define }}.Deleted != nil {
     {{ $define }}.Deleted(model)
   }
-
+  
   return err
 }
 
-
+  
 func (model *{{ $modelName }}) GetPrimaryKey() any {
   if {{ $define }}.PrimaryKeyGetter != nil {
     return {{ $define }}.PrimaryKeyGetter(model)
   }
-
+  
   return model.{{ toCamelCase $primaryKey }}
 }
 
@@ -554,7 +594,7 @@ func (model *{{ $modelName }}) Get{{ .Name }}Carbon() carbon.Carbon {
 {{- end }}
 
 
-{{- $relationQuery := replaceSuffix $relationItemType "Model" "Query" }}
+{{- $relationQuery := replace $relationItemType "Model" "Query" }}
 {{- $foreignKey := "" }}
 {{- $localKey := "" }}
 {{- $localQuery := join .Name "Query" }}
@@ -573,7 +613,7 @@ func (model *{{ $modelName }}) Get{{ .Name }}Carbon() carbon.Carbon {
 {{- else if (hasComment .Comment "@hasMany") }}
 {{- $throughName = "@hasMany" }}
 
-{{- $relationQuery = replaceSuffix $relationItemType "Model" "Query" }}
+{{- $relationQuery = replace $relationItemType "Model" "Query" }}
 {{- $foreignKey = getIndexComment .Comment "@hasMany" 0 (join .JSONName "_id") }}
 {{- $localKey = getIndexComment .Comment "@hasMany" 1 "id" }}
 {{- $relationQueryType = $relationItemType }}
@@ -653,7 +693,7 @@ func (model *{{ $modelName }}) Set{{ .Name }}(value {{ goType . }}) {
 
 {{- define "data" -}}
 package {{ .Package }}
-
+  
 import (
 {{- range .Imports }}
 {{ .Alias }} "{{ .Pkg }}"
@@ -670,7 +710,7 @@ type {{ .Model.Name }} struct {
 
 {{- define "request" -}}
 package {{ .Package }}
-
+  
 import (
   {{- range .Imports }}
   {{ .Alias }} "{{ .Pkg }}"
@@ -700,7 +740,7 @@ func (model *{{ .Model.Name }}) ToFields() contracts.Fields {
 
 {{- define "result" -}}
 package {{ .Package }}
-
+    
 import (
     "github.com/goal-web/contracts"
   {{- range .Imports }}
@@ -746,10 +786,10 @@ const (
   {{ $enumName }}{{ .Name }} {{ $enumName }} = {{ .Value }}
   {{- end }}
   {{ $enumName }}Unknown {{ $enumName }} = -1000
-
+      
 )
-
-
+  
+  
 func (item {{ $enumName }}) String() string {
     switch item {
       {{- range .Values }}

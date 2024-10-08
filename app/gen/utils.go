@@ -201,11 +201,11 @@ func ToTags(f *Field) string {
 		tags = append(tags, fmt.Sprintf(`json:"%s"`, f.JSONName))
 	}
 
-	if !strings.Contains(tags[0], "db:") {
-		if f.Parent != nil && HasComment(f.Parent.Comment, "@timestamps") {
-			createdAt := GetIndexComment(f.Parent.Comment, "@timestamps", 0, "created_at")
-			updatedAt := GetIndexComment(f.Parent.Comment, "@timestamps", 1, "updated_at")
+	if !strings.Contains(tags[0], "db:") && f.Parent != nil {
+		createdAt := GetIndexComment(f.Parent.Comment, "@timestamps", 0, "created_at")
+		updatedAt := GetIndexComment(f.Parent.Comment, "@timestamps", 1, "updated_at")
 
+		if HasComment(f.Parent.Comment, "@timestamps") && (f.JSONName == createdAt || f.JSONName == updatedAt) {
 			if f.JSONName == createdAt {
 				tags = append(tags, fmt.Sprintf(`db:"%s;type:timestamp;default CURRENT_TIMESTAMP;"`, f.JSONName))
 			}
@@ -217,7 +217,7 @@ func ToTags(f *Field) string {
 				`db:"%s;type:%s;not null;%s"`,
 				f.JSONName,
 				DBType(f),
-				utils.IfString(HasComment(f.Comment, "@pk") || (f.Parent != nil && !HasMsgComment(f.Parent, "@pk") && f.Index == 0), "primary key", ""),
+				utils.IfString(HasComment(f.Comment, "@pk") || (f.Parent != nil && !HasMsgComment(f.Parent, "@pk") && f.Index == 0), "primary key;AUTO_INCREMENT;", ""),
 			),
 			)
 		}
