@@ -7,7 +7,7 @@ require (
 	github.com/goal-web/application v0.5.1
 	github.com/goal-web/cache v0.5.1
 	github.com/goal-web/collection v0.5.1
-	github.com/goal-web/config v0.5.1
+	github.com/goal-web/config v0.5.2
 	github.com/goal-web/console v0.5.1
 	github.com/goal-web/contracts v0.5.2
 	github.com/goal-web/database v0.5.1
