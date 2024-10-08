@@ -16,7 +16,7 @@ require (
 	github.com/goal-web/events v0.5.1
 	github.com/goal-web/filesystem v0.5.1
 	github.com/goal-web/hashing v0.5.1
-	github.com/goal-web/migration v0.5.1
+	github.com/goal-web/migration v0.5.2
 	github.com/goal-web/redis v0.5.1
 	github.com/goal-web/serialization v0.5.1
 	github.com/goal-web/supports v0.5.3
@@ -33,7 +33,7 @@ require (
 	github.com/go-redis/redis/v8 v8.11.4 // indirect
 	github.com/go-sql-driver/mysql v1.5.0 // indirect
 	github.com/goal-web/container v0.5.1 // indirect
-	github.com/goal-web/querybuilder v0.5.1 // indirect
+	github.com/goal-web/querybuilder v0.5.2 // indirect
 	github.com/golang-module/carbon/v2 v2.3.12 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/jmoiron/sqlx v1.3.4 // indirect
