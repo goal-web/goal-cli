@@ -9,7 +9,7 @@ require (
 	github.com/goal-web/collection v0.5.1
 	github.com/goal-web/config v0.5.1
 	github.com/goal-web/console v0.5.1
-	github.com/goal-web/contracts v0.5.1
+	github.com/goal-web/contracts v0.5.2
 	github.com/goal-web/database v0.5.1
 	github.com/goal-web/email v0.5.1
 	github.com/goal-web/encryption v0.5.1
@@ -17,9 +17,9 @@ require (
 	github.com/goal-web/filesystem v0.5.1
 	github.com/goal-web/hashing v0.5.1
 	github.com/goal-web/migration v0.5.1
-	github.com/goal-web/redis v0.5.0
+	github.com/goal-web/redis v0.5.1
 	github.com/goal-web/serialization v0.5.1
-	github.com/goal-web/supports v0.5.2
+	github.com/goal-web/supports v0.5.3
 	github.com/stretchr/testify v1.9.0
 )
 
