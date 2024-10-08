@@ -1,11 +1,11 @@
 package commands
 
 import (
-	"database/sql"
 	"fmt"
 	"github.com/goal-web/console/arguments"
 	"github.com/goal-web/contracts"
 	"github.com/goal-web/goal-cli/utils"
+	"github.com/goal-web/migration/migrate"
 	"github.com/goal-web/supports/commands"
 	"github.com/goal-web/supports/logs"
 	utils2 "github.com/goal-web/supports/utils"
@@ -28,16 +28,6 @@ type makeModel struct {
 	commands.Command
 	connection contracts.DBConnection
 	app        contracts.Application
-}
-
-// ColumnInfo 结构体用于存储表的列信息
-type ColumnInfo struct {
-	Field   string         `db:"Field"`
-	Type    string         `db:"Type"`
-	Null    string         `db:"Null"`
-	Key     string         `db:"Key"`
-	Default sql.NullString `db:"Default"`
-	Extra   string         `db:"Extra"`
 }
 
 func fieldTypeToGoType(fieldType string) string {
@@ -83,11 +73,11 @@ func (cmd makeModel) Handle() any {
 		return nil
 	}
 
-	var existsColumns = make([]ColumnInfo, 0)
+	var existsColumns = make([]migrate.ColumnInfo, 0)
 	_ = cmd.connection.Select(&existsColumns, fmt.Sprintf("describe %s", table))
 
 	var columns []string
-	var primaryColumn ColumnInfo
+	var primaryColumn migrate.ColumnInfo
 	for _, column := range existsColumns {
 		columns = append(columns,
 			fmt.Sprintf("\n\t%s     %s    `json:\"%s\"`", utils.ConvertToCamelCase(column.Field), fieldTypeToGoType(column.Type), column.Field))

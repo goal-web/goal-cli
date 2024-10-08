@@ -27,7 +27,7 @@ func GetTemplate(path string) *template.Template {
 		"toCamelCase":     ToCamelCase,
 		"toSnake":         ToSnakeCase,
 		"toTags":          ToTags,
-		"replaceSuffix":   strings.ReplaceAll,
+		"replace":         strings.ReplaceAll,
 		"toComments":      ToComments,
 		"sprintf":         fmt.Sprintf,
 		"contains":        strings.Contains,

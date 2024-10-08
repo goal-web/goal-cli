@@ -139,7 +139,7 @@ func Sub(v, t int) int {
 	return v - t
 }
 
-func HasMsgComment(msg Message, name string) bool {
+func HasMsgComment(msg *Message, name string) bool {
 	if msg.Comment != nil {
 		if HasComment(msg.Comment, name) {
 			return true
@@ -162,6 +162,7 @@ func HasMsgComment(msg Message, name string) bool {
 func GetComment(comment *proto.Comment, name string, defaultValue string) string {
 	if comment != nil {
 		for _, line := range comment.Lines {
+			line = strings.TrimPrefix(line, " ")
 			if strings.HasPrefix(line, name) {
 				value := strings.TrimPrefix(strings.TrimPrefix(line, name), ":")
 				if value == "" {
@@ -192,13 +193,73 @@ func GetIndexComment(comment *proto.Comment, name string, index int, defaultValu
 
 // ToTags 生成 tag
 func ToTags(f *Field) string {
-	if strings.Contains(f.Tags, "json:") {
-		return f.Tags
+	var tags = []string{
+		GetComment(f.Comment, "@goTag", ""),
 	}
-	if f.Tags != "" && !strings.HasPrefix(f.Tags, " ") {
-		f.Tags = " " + f.Tags
+
+	if !strings.Contains(tags[0], "json:") {
+		tags = append(tags, fmt.Sprintf(`json:"%s"`, f.JSONName))
 	}
-	return fmt.Sprintf(`json:"%s"%s`, f.JSONName, f.Tags)
+
+	if !strings.Contains(tags[0], "db:") {
+		if f.Parent != nil && HasComment(f.Parent.Comment, "@timestamps") {
+			createdAt := GetIndexComment(f.Parent.Comment, "@timestamps", 0, "created_at")
+			updatedAt := GetIndexComment(f.Parent.Comment, "@timestamps", 1, "updated_at")
+
+			if f.JSONName == createdAt {
+				tags = append(tags, fmt.Sprintf(`db:"%s;type:timestamp;default CURRENT_TIMESTAMP;"`, f.JSONName))
+			}
+			if f.JSONName == updatedAt {
+				tags = append(tags, fmt.Sprintf(`db:"%s;type:timestamp;DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;"`, f.JSONName))
+			}
+		} else {
+			tags = append(tags, fmt.Sprintf(
+				`db:"%s;type:%s;not null;%s"`,
+				f.JSONName,
+				DBType(f),
+				utils.IfString(HasComment(f.Comment, "@pk") || (f.Parent != nil && !HasMsgComment(f.Parent, "@pk") && f.Index == 0), "primary key", ""),
+			),
+			)
+		}
+	}
+
+	return strings.TrimPrefix(strings.Join(tags, " "), " ")
+}
+
+func DBType(f *Field) string {
+	if usagePackageMap[f.Type] != nil {
+		return "json"
+	} else if HasComment(f.Comment, "@carbon") {
+		return "timestamp"
+	} else if f.Parent != nil && HasComment(f.Parent.Comment, "@timestamps") {
+		createdAt := GetIndexComment(f.Parent.Comment, "@timestamps", 0, "created_at")
+		updatedAt := GetIndexComment(f.Parent.Comment, "@timestamps", 1, "updated_at")
+		if f.JSONName == createdAt || f.JSONName == updatedAt {
+			return "timestamp"
+		}
+	}
+
+	var SQLTypeMap = map[string]string{
+		"double":   "DOUBLE",          // 双精度浮点数
+		"float":    "FLOAT",           // 单精度浮点数
+		"int32":    "INT",             // 32 位整型
+		"int64":    "BIGINT",          // 64 位整型
+		"uint32":   "INT UNSIGNED",    // 32 位无符号整型
+		"uint64":   "BIGINT UNSIGNED", // 64 位无符号整型
+		"sint32":   "INT",             // 32 位有符号整型（优化负数）
+		"sint64":   "BIGINT",          // 64 位有符号整型（优化负数）
+		"fixed32":  "INT",             // 32 位固定长度整数
+		"fixed64":  "BIGINT",          // 64 位固定长度整数
+		"sfixed32": "INT",             // 32 位有符号固定长度整数
+		"sfixed64": "BIGINT",          // 64 位有符号固定长度整数
+		"bool":     "BOOLEAN",         // 布尔类型
+		"string":   "VARCHAR(255)",    // 字符串类型
+		"bytes":    "BLOB",            // 二进制数据
+	}
+	if value, ok := SQLTypeMap[f.Type]; ok {
+		return value
+	}
+	return "varchar(255)"
 }
 
 var (

@@ -20,6 +20,15 @@ func ExtractModel(msg *proto.Message, basePackage, dir string) *Message {
 	var fields []*Field
 	var relations []*Field
 	var primaryKey string
+	var message = &Message{
+		IsModel:         true,
+		Comment:         msg.Comment,
+		TableName:       ConvertCamelToSnake(replaceSuffix(msg.Name, "Model")),
+		RawName:         replaceSuffix(msg.Name, "Model"),
+		Name:            msg.Name,
+		Relations:       relations,
+		Authenticatable: HasComment(msg.Comment, "@authenticatable"),
+	}
 	for _, element := range msg.Elements {
 		if field, ok := element.(*proto.NormalField); ok {
 			if primaryKey == "" {
@@ -27,6 +36,8 @@ func ExtractModel(msg *proto.Message, basePackage, dir string) *Message {
 			}
 
 			var fieldItem = &Field{
+				Index:     len(fields),
+				Parent:    message,
 				Repeated:  field.Repeated,
 				Comment:   field.Comment,
 				Name:      ToCamelCase(field.Name),
@@ -39,9 +50,7 @@ func ExtractModel(msg *proto.Message, basePackage, dir string) *Message {
 			if field.Comment != nil {
 				var commentTexts []string
 				for _, line := range field.Comment.Lines {
-					if strings.HasPrefix(line, "@gotag:") {
-						fieldItem.Tags = strings.TrimPrefix(line, "@gotag:")
-					} else if strings.HasPrefix(line, "@pk") {
+					if strings.HasPrefix(line, "@pk") {
 						primaryKey = field.Name
 					} else if strings.HasPrefix(line, "@ptr") {
 						fieldItem.Ptr = true
@@ -56,6 +65,8 @@ func ExtractModel(msg *proto.Message, basePackage, dir string) *Message {
 			}
 			if (HasComment(field.Comment, "@belongsTo") ||
 				HasComment(field.Comment, "@hasOne") ||
+				HasComment(field.Comment, "@hasOneThrough") ||
+				HasComment(field.Comment, "@belongsToThrough") ||
 				HasComment(field.Comment, "@hasMany")) && strings.HasSuffix(field.Type, "Model") {
 				fieldItem.IsModel = true
 				relations = append(relations, fieldItem)
@@ -64,26 +75,18 @@ func ExtractModel(msg *proto.Message, basePackage, dir string) *Message {
 			}
 		}
 	}
-	var midDir, tmlp = "models", "model"
+	var midDir = "models"
 
 	importPath := strings.Join(trim(basePackage, midDir), "/")
 	usageName := fmt.Sprintf("%s.%s", filepath.Base(importPath), msg.Name)
 
-	message := Message{
-		IsModel:         true,
-		Comment:         msg.Comment,
-		Template:        tmlp,
-		PrimaryKey:      primaryKey,
-		TableName:       ConvertCamelToSnake(replaceSuffix(msg.Name, "Model")),
-		RawName:         replaceSuffix(msg.Name, "Model"),
-		Name:            msg.Name,
-		Fields:          fields,
-		Relations:       relations,
-		ImportPath:      importPath,
-		UsageName:       usageName,
-		Authenticatable: HasComment(msg.Comment, "@authenticatable"),
-		FilePath:        strings.Join(trim(midDir, replaceSuffix(msg.Name, "Model")+"_gen.go"), "/"),
-	}
+	message.Template = "model"
+	message.ImportPath = importPath
+	message.UsageName = usageName
+	message.PrimaryKey = primaryKey
+	message.Fields = fields
+	message.Relations = relations
+	message.FilePath = strings.Join(trim(midDir, replaceSuffix(msg.Name, "Model")+"_gen.go"), "/")
 
 	if msg.Comment != nil {
 		for _, line := range msg.Comment.Lines {
@@ -96,8 +99,8 @@ func ExtractModel(msg *proto.Message, basePackage, dir string) *Message {
 			}
 		}
 	}
-	usagePackageMap[msg.Name] = &message
-	return &message
+	usagePackageMap[msg.Name] = message
+	return message
 }
 
 // 避免死循环解析

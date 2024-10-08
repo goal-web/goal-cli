@@ -11,6 +11,7 @@ import (
 
 type Field struct {
 	Comment    *proto.Comment
+	Index      int
 	Name       string
 	Type       string
 	JSONName   string
@@ -22,6 +23,7 @@ type Field struct {
 	Ptr        bool
 	IsModel    bool
 	Repeated   bool
+	Parent     *Message
 }
 
 type Message struct {
