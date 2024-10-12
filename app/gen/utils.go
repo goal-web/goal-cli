@@ -201,6 +201,14 @@ func ToTags(f *Field) string {
 		tags = append(tags, fmt.Sprintf(`json:"%s"`, f.JSONName))
 	}
 
+	if !strings.Contains(tags[0], "query:") {
+		tags = append(tags, fmt.Sprintf(`query:"%s"`, f.JSONName))
+	}
+
+	if !strings.Contains(tags[0], "form:") {
+		tags = append(tags, fmt.Sprintf(`form:"%s"`, f.JSONName))
+	}
+
 	if !strings.Contains(tags[0], "db:") && f.Parent != nil {
 		createdAt := GetIndexComment(f.Parent.Comment, "@timestamps", 0, "created_at")
 		updatedAt := GetIndexComment(f.Parent.Comment, "@timestamps", 1, "updated_at")
