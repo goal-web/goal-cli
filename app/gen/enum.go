@@ -97,3 +97,36 @@ func GenEnums(baseOutputDir string, tmpl *template.Template, enums []*Enum) []st
 	}
 	return files
 }
+
+func SDKEnums(baseOutputDir string, tmpl *template.Template, enums []*Enum) []string {
+	var files []string
+	for _, enum := range enums {
+		outputPath := filepath.Join(baseOutputDir, strings.ReplaceAll(enum.FilePath, ".go", ".ts"))
+
+		// 创建目录
+		err := os.MkdirAll(filepath.Dir(outputPath), os.ModePerm)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		// 创建输出文件
+		outFile, err := os.Create(outputPath)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		// 执行模板，传入 moduleName 和 outputPackageName
+		err = tmpl.ExecuteTemplate(outFile, "enum", map[string]any{
+			"Package": enum.Package,
+			"Name":    enum.Name,
+			"Values":  enum.Values,
+		})
+		if err != nil {
+			log.Fatal(err)
+		}
+		outFile.Close()
+		files = append(files, outputPath)
+		fmt.Printf("生成枚举文件：%s\n", outputPath)
+	}
+	return files
+}
