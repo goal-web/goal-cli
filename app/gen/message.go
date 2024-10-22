@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"text/template"
 )
 
@@ -67,6 +68,43 @@ func GenMessages(tmpl *template.Template, baseOutputDir string, messages []*Mess
 		// 执行模板，传入 moduleName 和 outputPackageName
 		err = tmpl.ExecuteTemplate(outFile, message.Template, map[string]any{
 			"Imports":   DetermineMessageImports(message),
+			"Model":     message,
+			"Package":   filepath.Base(message.ImportPath),
+			"Name":      message.Name,
+			"Fields":    message.Fields,
+			"Relations": message.Relations,
+		})
+		if err != nil {
+			log.Fatal(err)
+		}
+		outFile.Close()
+
+		fmt.Printf("生成模型文件：%s\n", outputPath)
+		files = append(files, outputPath)
+	}
+	return files
+}
+
+func SDKMessages(tmpl *template.Template, baseOutputDir string, messages []*Message) []string {
+	var files []string
+	for _, message := range messages {
+		outputPath := filepath.Join(baseOutputDir, strings.ReplaceAll(message.FilePath, ".go", ".ts"))
+
+		// 创建目录
+		err := os.MkdirAll(filepath.Dir(outputPath), os.ModePerm)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		// 创建输出文件
+		outFile, err := os.Create(outputPath)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		// 执行模板，传入 moduleName 和 outputPackageName
+		err = tmpl.ExecuteTemplate(outFile, message.Template, map[string]any{
+			"Imports":   DetermineTsMessageImports(message),
 			"Model":     message,
 			"Package":   filepath.Base(message.ImportPath),
 			"Name":      message.Name,

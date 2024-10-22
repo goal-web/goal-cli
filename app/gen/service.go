@@ -2,6 +2,7 @@ package gen
 
 import (
 	"fmt"
+	"github.com/emicklei/proto"
 	"log"
 	"os"
 	"path/filepath"
@@ -16,6 +17,7 @@ type ExtractServiceTemp struct {
 }
 
 type Method struct {
+	Comment             *proto.Comment
 	Name                string
 	InputImportPackage  string   // biz/request
 	OutputImportPackage string   // biz/models
@@ -27,6 +29,7 @@ type Method struct {
 }
 
 type Service struct {
+	Comment     *proto.Comment
 	Name        string
 	Methods     []*Method
 	PackageName string // 包名，例如：auth
@@ -44,14 +47,14 @@ type Service struct {
 func GenServices(baseOutputDir, basePackage string, tmpl *template.Template, services []*Service) []string {
 	var files []string
 	for _, svc := range services {
-		files = append(files, GenService(baseOutputDir, basePackage, tmpl, svc))
+		files = append(files, GenService(baseOutputDir, basePackage, tmpl, svc, DetermineServiceImports(svc)))
 		fmt.Printf("生成服务文件：%s\n", filepath.Join(baseOutputDir, svc.Filename))
 
 		if svc.Controller {
 			svc.Filename = strings.Replace(svc.Filename, "services", "controllers", 1)
 			svc.UsageName = strings.Replace(svc.UsageName, filepath.Base(svc.ImportPath), "svc", 1)
 			svc.Template = "controller"
-			files = append(files, GenService(baseOutputDir, basePackage, tmpl, svc))
+			files = append(files, GenService(baseOutputDir, basePackage, tmpl, svc, DetermineServiceImports(svc)))
 			fmt.Printf("生成控制器文件：%s\n", filepath.Join(baseOutputDir, svc.Filename))
 		}
 
@@ -59,14 +62,29 @@ func GenServices(baseOutputDir, basePackage string, tmpl *template.Template, ser
 	return files
 }
 
-func GenService(baseOutputDir, basePackage string, tmpl *template.Template, svc *Service) string {
+// SDKServices 生成 service 代码
+func SDKServices(baseOutputDir, basePackage string, tmpl *template.Template, services []*Service) []string {
+	var files []string
+	for _, svc := range services {
+
+		if svc.Controller {
+			svc.Filename = fmt.Sprintf("services/%s", filepath.Base(strings.ReplaceAll(svc.Filename, ".go", ".ts")))
+			svc.UsageName = strings.Replace(svc.UsageName, filepath.Base(svc.ImportPath), "svc", 1)
+			svc.Template = "controller"
+			files = append(files, GenService(baseOutputDir, basePackage, tmpl, svc, DetermineTsServiceImports(svc)))
+			fmt.Printf("生成控制器文件：%s\n", filepath.Join(baseOutputDir, svc.Filename))
+		}
+
+	}
+	return files
+}
+
+func GenService(baseOutputDir, basePackage string, tmpl *template.Template, svc *Service, imports []Import) string {
 	outputPath := filepath.Join(baseOutputDir, svc.Filename)
 	err := os.MkdirAll(filepath.Dir(outputPath), os.ModePerm)
 	if err != nil {
 		log.Fatal(err)
 	}
-	// 生成需要导入的包列表
-	imports := DetermineServiceImports(svc)
 
 	outFile, err := os.Create(outputPath)
 	if err != nil {
@@ -75,6 +93,7 @@ func GenService(baseOutputDir, basePackage string, tmpl *template.Template, svc 
 
 	// 执行模板，传入 moduleName、outputPackageName 和 imports
 	err = tmpl.ExecuteTemplate(outFile, svc.Template, map[string]interface{}{
+		"Comment":      svc.Comment,
 		"Package":      svc.PackageName,
 		"ImportPath":   svc.ImportPath,
 		"UsageName":    svc.UsageName,

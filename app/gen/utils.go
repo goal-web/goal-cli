@@ -102,6 +102,26 @@ func GoType(field *Field) string {
 	return str
 }
 
+// TsType 将 Proto 类型映射为 typescript 类型
+func TsType(field *Field) string {
+	tsTag := GetComment(field.Comment, "@tsType", "")
+	if tsTag != "" {
+		return tsTag
+	}
+
+	types := map[string]string{
+		"int64": "number",
+		"int32": "number",
+		"bool":  "boolean",
+	}
+
+	if v, exists := types[field.Type]; exists {
+		return v
+	}
+
+	return field.Type
+}
+
 // FieldMsg 将 Proto 类型映射为 Go 类型
 func FieldMsg(field *Field) *Message {
 	return usagePackageMap[field.Type]

@@ -3,6 +3,7 @@ package gen
 import (
 	"fmt"
 	"github.com/emicklei/proto"
+	"github.com/goal-web/supports/utils"
 	"path/filepath"
 	"strings"
 )
@@ -106,7 +107,8 @@ func ExtractModel(msg *proto.Message, basePackage, dir string) *Message {
 // 避免死循环解析
 var parsedProtoMap = make(map[string]*Proto)
 
-func ExtractProto(pwd string, def *proto.Proto, basePackage string, dir string) *Proto {
+func ExtractProto(pwd string, def *proto.Proto, basePackage string, dir string, skipGoPackage ...bool) *Proto {
+	var flat = utils.DefaultValue(skipGoPackage, false)
 	var models []*Message
 	var dataList []*Message
 	var requests []*Message
@@ -118,7 +120,7 @@ func ExtractProto(pwd string, def *proto.Proto, basePackage string, dir string) 
 	for _, element := range def.Elements {
 		switch v := element.(type) {
 		case *proto.Option:
-			if v.Name == "go_package" {
+			if v.Name == "go_package" && !flat {
 				dir = v.Constant.Source
 				fmt.Printf("读取到包名：%s\n", dir)
 			}
@@ -257,6 +259,7 @@ func ExtractServices(def *proto.Proto, basePackage string, dir string) map[strin
 						if rpc, ok := se.(*proto.RPC); ok {
 
 							method := &Method{
+								Comment:             rpc.Comment,
 								Name:                rpc.Name,
 								InputUsageName:      usagePackageMap[rpc.RequestType].UsageName,
 								InputImportPackage:  usagePackageMap[rpc.RequestType].ImportPath,
@@ -276,6 +279,7 @@ func ExtractServices(def *proto.Proto, basePackage string, dir string) map[strin
 					usageName := fmt.Sprintf("%s.%s", filepath.Base(importPath), e.Name)
 
 					temp.List = append(temp.List, &Service{
+						Comment:     e.Comment,
 						Middlewares: getComments(e.Comment, "@middleware", ""),
 						Controller:  HasComment(e.Comment, "@controller"),
 						Prefix:      GetComment(e.Comment, "@controller", ""),
