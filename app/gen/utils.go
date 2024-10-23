@@ -99,6 +99,11 @@ func GoType(field *Field) string {
 	if field.Repeated {
 		str = "[]" + str
 	}
+
+	if msg, exists := usagePackageMap[field.Type]; exists && HasComment(msg.Comment, "@goType") {
+		return GetComment(msg.Comment, "@goType", str)
+	}
+
 	return str
 }
 
@@ -114,12 +119,18 @@ func TsType(field *Field) string {
 		"int32": "number",
 		"bool":  "boolean",
 	}
-
+	var str string
 	if v, exists := types[field.Type]; exists {
-		return v
+		str = v
+	} else {
+		str = field.Type
 	}
 
-	return field.Type
+	if field.Repeated {
+		str = str + "[]"
+	}
+
+	return str
 }
 
 // FieldMsg 将 Proto 类型映射为 Go 类型

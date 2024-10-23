@@ -79,3 +79,7 @@ func GetModuleNameAndDir(startDir string) (string, string, error) {
 	}
 	return "", "", fmt.Errorf("在目录及其上级目录中未找到 go.mod 文件")
 }
+
+func Last[T any](slice []T) T {
+	return slice[len(slice)-1]
+}
