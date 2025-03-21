@@ -93,7 +93,7 @@ func GoType(field *Field) string {
 		str = field.Type
 	}
 
-	if field.Ptr || field.IsModel {
+	if field.Ptr || field.IsModel || HasComment(field.Comment, "@nullable") {
 		str = "*" + str
 	}
 	if field.Repeated {

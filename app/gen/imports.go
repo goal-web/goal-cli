@@ -95,63 +95,63 @@ func DetermineTsMessageImports(message *Message) []Import {
 
 func DetermineServiceImports(service *Service) []Import {
 	var base string
-	svcImportsSet = make(map[string]string)
+	var svcImportsSets = make(map[string]string)
+	// key 是 pkg
+	var tmpMap = make(map[string]string)
 
 	for i, method := range service.Methods {
-		method.InputUsageName = fmt.Sprintf("%s.%s", filepath.Base(method.InputImportPackage), Last(strings.Split(method.InputUsageName, ".")))
-		method.OutputUsageName = fmt.Sprintf("%s.%s", filepath.Base(method.OutputImportPackage), Last(strings.Split(method.OutputUsageName, ".")))
+		var inputAlias, outputAlias string
 
-		inputMsg, _ := usagePackageMap[strings.Split(method.InputUsageName, ".")[1]]
-		if inputMsg != nil {
-			if HasComment(inputMsg.Comment, "@goType") {
-				method.InputUsageName = GetComment(inputMsg.Comment, "@goType", method.InputUsageName)
-			} else {
-				if alias, exists := svcUsageMap[method.InputImportPackage]; exists {
-					method.InputUsageName = strings.ReplaceAll(method.InputUsageName, filepath.Base(method.InputImportPackage), alias)
-				} else {
-					base = filepath.Base(method.InputImportPackage)
-					if _, exists := svcImportsSet[base]; exists && svcImportsSet[base] != method.InputImportPackage {
-						alias = fmt.Sprintf("%s%d", base, i)
-						svcImportsSet[alias] = method.InputImportPackage
-						method.InputUsageName = strings.ReplaceAll(method.InputUsageName, base, alias)
-						svcUsageMap[method.InputImportPackage] = alias
-					} else {
-						svcImportsSet[base] = method.InputImportPackage
-					}
-				}
+		if ia, exists := tmpMap[method.InputImportPackage]; exists {
+			inputAlias = ia
+			svcImportsSets[ia] = method.InputImportPackage
+		} else {
+			inputAlias = filepath.Base(method.InputImportPackage)
+			if ia, exists = svcImportsSets[inputAlias]; exists {
+				inputAlias = inputAlias + fmt.Sprintf("%d", i)
 			}
+			svcImportsSets[inputAlias] = method.InputImportPackage
+			tmpMap[method.InputImportPackage] = inputAlias
+		}
+		method.InputUsageName = fmt.Sprintf("%s.%s", inputAlias, Last(strings.Split(method.InputUsageName, ".")))
 
+		inputMsg, _ := usagePackageMap[Last(strings.Split(method.InputUsageName, "."))]
+		if inputMsg != nil && HasComment(inputMsg.Comment, "@goType") {
+			method.InputUsageName = GetComment(inputMsg.Comment, "@goType", method.InputUsageName)
 		}
 
-		outputMsg, _ := usagePackageMap[strings.Split(method.OutputUsageName, ".")[1]]
-		if outputMsg != nil {
-			if HasComment(outputMsg.Comment, "@goType") {
-				method.OutputUsageName = GetComment(outputMsg.Comment, "@goType", method.OutputUsageName)
-			} else {
-				if alias, exists := svcUsageMap[method.OutputImportPackage]; exists {
-					method.OutputUsageName = strings.ReplaceAll(method.OutputUsageName, filepath.Base(method.OutputImportPackage), alias)
-				} else {
-					base = filepath.Base(method.OutputImportPackage)
-					if _, exists := svcImportsSet[base]; exists && base != method.OutputImportPackage {
-						alias = fmt.Sprintf("%s%d", base, i)
-						svcImportsSet[alias] = method.OutputImportPackage
-						method.OutputUsageName = strings.ReplaceAll(method.OutputUsageName, base, alias)
-						svcUsageMap[method.OutputImportPackage] = alias
-					} else {
-						svcImportsSet[base] = method.OutputImportPackage
-					}
-				}
+		outputMsg, _ := usagePackageMap[Last(strings.Split(method.OutputUsageName, "."))]
+		if oa, exists := tmpMap[method.OutputImportPackage]; exists {
+			outputAlias = oa
+			svcImportsSets[oa] = method.OutputImportPackage
+			tmpMap[method.OutputImportPackage] = outputAlias
+		} else {
+			outputAlias = filepath.Base(method.OutputImportPackage)
+			if oa, exists = svcImportsSets[outputAlias]; exists {
+				outputAlias = outputAlias + fmt.Sprintf("%d", i)
 			}
+
+			svcImportsSets[outputAlias] = method.OutputImportPackage
+			tmpMap[method.OutputImportPackage] = outputAlias
+		}
+		method.OutputUsageName = fmt.Sprintf("%s.%s", outputAlias, Last(strings.Split(method.OutputUsageName, ".")))
+
+		if outputMsg != nil && HasComment(outputMsg.Comment, "@goType") {
+			method.OutputUsageName = GetComment(outputMsg.Comment, "@goType", method.OutputUsageName)
 		}
 	}
+
 	var imports []Import
-	for alias, pkg := range svcImportsSet {
+
+	for alias, pkg := range svcImportsSets {
 		imp := Import{
 			Pkg:   pkg,
 			Alias: alias,
 		}
 		imports = append(imports, imp)
 	}
+
+	fmt.Println("DetermineServiceImports:", base, svcImportsSets, tmpMap)
 	return imports
 }
 
