@@ -170,6 +170,33 @@ func Sub(v, t int) int {
 	return v - t
 }
 
+func IsBasicType(field *Field) bool {
+	if field.IsModel {
+		return false
+	}
+
+	if len(strings.Split(field.UsageName, ".")) > 1 {
+		return false
+	}
+
+	return true
+}
+
+func ConvertFunc(t string) string {
+	return fmt.Sprintf("To%s", CapitalizeFirstLetter(t))
+}
+
+// CapitalizeFirstLetter 将单词的首字母大写
+func CapitalizeFirstLetter(word string) string {
+	if len(word) == 0 {
+		return word
+	}
+	// 将第一个字符转换为大写
+	firstLetter := unicode.ToUpper(rune(word[0]))
+	// 拼接剩余部分
+	return string(firstLetter) + word[1:]
+}
+
 func HasMsgComment(msg *Message, name string) bool {
 	if msg.Comment != nil {
 		if HasComment(msg.Comment, name) {
