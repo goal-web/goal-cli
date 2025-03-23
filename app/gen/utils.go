@@ -171,7 +171,7 @@ func Sub(v, t int) int {
 }
 
 func IsBasicType(field *Field) bool {
-	if field.IsModel {
+	if field.IsModel || field.Repeated {
 		return false
 	}
 
