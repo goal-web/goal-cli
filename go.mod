@@ -1,6 +1,6 @@
 module github.com/goal-web/goal-cli
 
-go 1.23.2
+go 1.25.0
 
 require (
 	github.com/emicklei/proto v1.13.2

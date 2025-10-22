@@ -82,13 +82,12 @@ func (cmd makeModel) Handle() any {
 	}
 
 	if len(columns) == 0 {
-		columns = append(columns, `//@pk
-		int64 id = 1;
-		string created_at = 2;
+		columns = append(columns, `
+		//@pk
+		uint64 id = 1;
 
-
-
-		string updated_at = 100;`)
+		string created_at = 100;
+		string updated_at = 101;`)
 	}
 
 	err := os.WriteFile(path, []byte(fmt.Sprintf(`syntax = "proto3";
