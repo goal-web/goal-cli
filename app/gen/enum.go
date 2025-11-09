@@ -2,12 +2,13 @@ package gen
 
 import (
 	"fmt"
-	"github.com/emicklei/proto"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
 	"text/template"
+
+	"github.com/emicklei/proto"
 )
 
 type Enum struct {

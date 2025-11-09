@@ -23,7 +23,7 @@ import (
 
 func main() {
 	env := config.NewToml(config.File("env.toml"))
-	app := application.Singleton(env.GetBool("app.debug"))
+	app := application.Default(env.GetBool("app.debug"))
 
 	app.Singleton("exceptions.handler", func() contracts.ExceptionHandler {
 		return exceptions.DefaultExceptionHandler{}
