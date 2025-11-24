@@ -22,7 +22,6 @@ type Proto struct {
 }
 
 func (proto Proto) Handle() any {
-	gen.Pro(proto.GetString("proto"), proto.GetString("tmpl"), proto.GetString("out"))
 	tmpl := proto.GetString("tmpl")
 	out := proto.GetString("out")
 	protoFiles, err := scanProtoFiles(proto.GetString("dir"))
