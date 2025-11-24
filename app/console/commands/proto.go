@@ -11,7 +11,7 @@ import (
 )
 
 func NewGen() (contracts.Command, contracts.CommandHandlerProvider) {
-	return commands.Base("gen {dir:Proto 文件的路径} {--out:输出的基准目录=.} {--mode:生成模式=pro} {--tmpl:模板文件路径=template.tmpl}", "通过 proto 生成代码"),
+	return commands.Base("gen {--dir:Proto文件的路径=pro} {--out:输出的基准目录=.} {--mode:生成模式=pro} {--tmpl:模板文件路径=template.tmpl}", "通过 proto 生成代码"),
 		func(application contracts.Application) contracts.CommandHandler {
 			return &Proto{}
 		}
